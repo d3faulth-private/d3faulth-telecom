@@ -132,6 +132,7 @@ class TelecomApp(App):
             f"  PCAP SCTP FRAMES: {packets['count'] if packets['count'] is not None else 'N/A'}\n"
             f"  OSMOSTP: {stp_health}\n"
             f"  ASP ACTIVE: {asp_active}\n"
+            f"  SS7 ROUTING: UNVERIFIED\n"
             f"  PERSISTENT CORE: {'HEALTHY' if current and live_path['status'] == 'HEALTHY' else 'DEGRADED' if current else 'OFF'}\n"
             f"  ASPUP/ACK: [{color}]{self.route}[/{color}]\n  CAPTURE: {'ON' if cap['active'] else 'OFF'}\n"
             f"  SCCP: NOT INSTALLED\n  TCAP: NOT INSTALLED\n  MAP: NOT INSTALLED\n"
