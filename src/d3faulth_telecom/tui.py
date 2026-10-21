@@ -104,7 +104,7 @@ class TelecomApp(App):
         p.append(wire, style=f"bold {color}")
         p.append("\n\n   PLANNED NODE              127.0.0.1:29055         PLANNED NODE\n", style="dim")
         p.append("   SCTP/M3UA test exchange is localhost-only.\n", style="yellow")
-        p.append("   Gray nodes have no configured telecom service.", style="dim")
+        p.append("   HLR is disconnected; green refers only to local client ↔ test endpoint.", style="dim")
         self.query_one("#topology", Static).update(p)
         cap = capture.status()
         self.query_one("#status", Static).update(
