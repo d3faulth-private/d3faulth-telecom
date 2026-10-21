@@ -129,3 +129,18 @@ The OsmoSTP M3UA adapter now sends an explicit **SCTP PPID 3** using Linux `libs
 On Kali, check `ldconfig -p | grep libsctp`; if absent install the appropriate system library package (`sudo apt install libsctp1 lksctp-tools`). To verify the new probe, ensure the *existing managed OsmoSTP* process is running, then run `telecom stp-status`. The updated Python probe is effective without restarting the OsmoSTP service. A successful `m3ua_ack` indicates **ASPUP_ACK only**, not an M3UA ACTIVE state or functioning SCCP/MAP service.
 
 In the event of an unverified ACK, inspect `~/.local/state/d3faulth-telecom/osmostp.log`, and keep the service on 127.0.0.1. Do not forward ports to external networks. This fix is pending live validation on Kali.
+
+## v0.6 experimental signaling-state groundwork
+
+The first v0.6 increment introduces an explicit protocol state model with three separate concepts: **SCTP established**, **M3UA ASP UP**, and **M3UA ASP ACTIVE**. An ASPUP_ACK proves ASP UP only; it does not establish ASP ACTIVE or routing.
+
+```bash
+git fetch origin
+git switch feature/v0.6-signaling-core
+source .venv/bin/activate
+pip install -e '.[tui,dev]'
+python -m unittest discover -s tests -v
+telecom signaling-state
+```
+
+`telecom signaling-state` checks the managed localhost OsmoSTP adapter. It reports observed ASPUP_ACK as `UP`, and always leaves routing `UNVERIFIED`. Actual ASPAC/ACK exchange, routing contexts, SCCP and TCAP decoding, multiple real Osmocom nodes and packet rate metrics are **not yet implemented**. Do not equate this state-model groundwork with a complete v0.6 network.
