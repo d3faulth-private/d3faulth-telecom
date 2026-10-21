@@ -422,3 +422,7 @@ telecom phase1-proof
 ```
 
 The first command keeps destination and source SCTP associations open together, validates ASPUP_ACK/ASPAC_ACK for each, sends the fixed synthetic M3UA DATA marker from point code 23 to 42, and verifies actual destination socket receipt. It never controls a service or contacts off-loopback addresses. The second command captures only loopback SCTP port 29165 with tshark, then checks for at least two decoded M3UA DATA frames and receiver receipt. This is corroboration, not exhaustive per-packet cryptographic correlation. Check the returned `delivery`, `data_frames`, and OsmoSTP log before any merge. If the test fails, routing stays UNVERIFIED; status must not be inferred from ASP activation alone. A non-running candidate causes a connection failure, not a fallback to the primary service.
+
+### Phase 1 post-DATA diagnostics
+
+`telecom phase1-concurrent` now records a `post_data_responses` object with separate `source` and `destination` ordered arrays. For M3UA ERROR and NOTIFY frames, records include class, type, raw hex, decoded error code or NOTIFY status and routing contexts. Unexpected DATA or malformed responses are preserved as evidence rather than silently ignored. No routing context is added to outgoing DATA by this change; OsmoSTP configuration is unchanged. Receiver receipt alone does not mark PCAP or routing as verified. Start the bounded isolated OsmoSTP candidate first and rerun this command while the candidate is listening.
