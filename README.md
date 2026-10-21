@@ -144,3 +144,19 @@ telecom signaling-state
 ```
 
 `telecom signaling-state` checks the managed localhost OsmoSTP adapter. It reports observed ASPUP_ACK as `UP`, and always leaves routing `UNVERIFIED`. Actual ASPAC/ACK exchange, routing contexts, SCCP and TCAP decoding, multiple real Osmocom nodes and packet rate metrics are **not yet implemented**. Do not equate this state-model groundwork with a complete v0.6 network.
+
+### v0.6 Phase 2: one-shot ASP activation verification
+
+With the managed, localhost-only OsmoSTP running:
+
+```bash
+git pull origin feature/v0.6-signaling-core
+source .venv/bin/activate
+python -m unittest discover -s tests -v
+telecom asp-activate-test
+telecom
+```
+
+Press **A** in the TUI to run the same isolated protocol-state test. It sends ASPUP and (after receiving ASPUP_ACK) ASPAC on **one SCTP association**, using M3UA PPID 3. It reports ASP ACTIVE only on receipt of a genuine ASPAC_ACK; failures and unexpected messages remain unverified. The transaction ends after the check. No packet DATA, routing verification, subscriber lookup or MAP procedures are implemented. Dynamic OsmoSTP associations may require additional AS/routing-context configuration before activation is accepted. Do not expose signaling interfaces or change the loopback binding.
+
+This increment is awaiting Kali integration verification; it is not merged into main.
