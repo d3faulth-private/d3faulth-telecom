@@ -444,3 +444,15 @@ The pause is bounded between 0 and 30 seconds and the sockets close afterward. S
 The observed OsmoSTP log `MTP-TRANSFER.req for DPC 42: no route!` and the empty `show cs7 instance 0 route` establish that the isolated test did not find an MTP forwarding route. The route-key declarations alone do not prove such a route exists.
 
 Run `telecom phase1-routes --reference /tmp/osmostp-vty-reference.xml` to compare the candidate's explicit route entries against point codes 0.2.7 and 0.5.2 and check whether the installed VTY supports `update route POINT_CODE MASK linkset LS_NAME` inside `config-cs7-rt`. This is a **read-only** audit. It intentionally does not generate an executable route candidate yet: the appropriate mask notation and whether the AS name can serve as a linkset target must first be verified for installed OsmoSTP 2.1.0. Neither primary nor candidate service is modified; forwarding and DATA receipt remain unverified.
+
+## Offline MSISDN analysis (authorized captures only)
+
+The lab includes a conservative MSISDN field counter for **local PCAP/PCAPNG files** already obtained through authorized private network or test-SIM activity. It never monitors a radio/network interface, does not connect to an SS7 peer, and displays no extracted phone numbers.
+
+```bash
+telecom msisdn-analyze /path/to/authorized-capture.pcapng
+# TBCD self-test using artificial bytes (1234567, displayed masked):
+telecom msisdn-tbcd 214365f7
+```
+
+The parser delegates protocol dissection to an installed `tshark`, searches only explicitly named MSISDN fields in `gsm_map`/E.164-decoded traffic, and reports counts by field type. Other telephone-number fields, nonstandard dissectors, encrypted traces and raw undecoded TBCD blobs are intentionally not inferred. The standalone TBCD helper decodes low-nibble-first synthetic bytes and masks the result. Limits: 100 MiB input, 32 MiB decoded JSON, 40-second decode timeout. Capture metadata remains local. A zero result means no matching decoded MSISDN fields, **not** that subscriber identifiers are absent from every packet. Never upload captures containing real identifiers to a public repository.
