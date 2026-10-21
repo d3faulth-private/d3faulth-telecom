@@ -60,7 +60,7 @@ class TelecomApp(App):
     def compose(self) -> ComposeResult:
         yield Header()
         yield Static("▣  D3FAULTH  //  TELECOM LAB  ▣    SIGNALING OPERATIONS CONTROL CENTER", id="brand")
-        yield Static(" [01 TOPOLOGY]    [02 SCTP / M3UA]    [03 PACKTURE]    [04 RF: NOT CONNECTED] ", id="tabs")
+        yield Static(" [01 TOPOLOGY]    [02 SCTP / M3UA]    [03 CAPTURE]    [04 RF: NOT CONNECTED] ", id="tabs")
         yield Static(id="status")
         with Horizontal(id="middle"):
             yield Static(id="topology")
