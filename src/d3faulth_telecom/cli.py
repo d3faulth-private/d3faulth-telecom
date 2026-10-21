@@ -23,6 +23,8 @@ def main():
     sub.add_parser("delivery-demo", help="Verify receipt from a separate localhost destination (not SS7 routing)")
     evidence = sub.add_parser("route-audit", help="Correlate isolated lab checkpoint events without claiming SS7 route health")
     evidence.add_argument("file", help="JSONL checkpoint file")
+    proof = sub.add_parser("route-proof", help="Audit four lab M3UA DATA checkpoints and STP capture references")
+    proof.add_argument("file", help="JSON array of observations")
     sub.add_parser("stp-stop", help="Stop the managed OsmoSTP server")
     sub.add_parser("fail", help="Inject a local ASPUP_ACK failure")
     sub.add_parser("events", help="Show captured lab event log")
@@ -54,6 +56,10 @@ def main():
         operation = {"stp-start": osmostp.start, "stp-status": osmostp.status, "stp-stop": osmostp.stop}[args.cmd]
         try: print(json.dumps(operation(), indent=2))
         except RuntimeError as exc: parser.exit(2, f"ERROR: {exc}\\n")
+    elif args.cmd == "route-proof":
+        from .route_proof import audit_route_file
+        try: print(json.dumps(audit_route_file(args.file), indent=2))
+        except (OSError, ValueError) as exc: parser.exit(2, f"Evidence error: {exc}\\n")
     elif args.cmd == "route-audit":
         from .route_evidence import audit_file
         try: print(json.dumps(audit_file(args.file), indent=2))
