@@ -44,6 +44,7 @@ class TelecomApp(App):
         Binding("s", "core_start", "Start persistent core"),
         Binding("z", "core_stop", "Stop persistent core"),
         Binding("o", "stp_start", "OsmoSTP start"),
+        Binding("a", "asp_activate", "Verify ASP ACTIVE"),
         Binding("shift+o", "stp_stop", "OsmoSTP stop"),
         Binding("shift+n", "network_fault", "Two-hop fault"),
         Binding("f", "fail", "Fault"),
@@ -65,6 +66,7 @@ class TelecomApp(App):
         self.show_details = True
         self._seen = 0
         self.path = None
+        self.activation = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -123,11 +125,13 @@ class TelecomApp(App):
         chart = "".join(SPARK[min(7, n)] for n in values)
         packets = capture.packet_metrics()
         stp_health = "ACK VERIFIED" if stp["m3ua_ack"] else "RUNNING / NO ACK" if stp["running"] else "OFF"
+        asp_active = self.activation.get("asp_active", "UNTESTED") if self.activation else "UNTESTED"
         self.query_one("#telemetry", Static).update(
             f"[bold cyan]┌─ LIVE TELEMETRY[/bold cyan]\n\n"
             f"  LAB EVENT COUNTER (NOT PCAP)\n  [green]{chart}[/green]\n  {values[-1]} logged events in sample\n\n"
             f"  PCAP SCTP FRAMES: {packets['count'] if packets['count'] is not None else 'N/A'}\n"
             f"  OSMOSTP: {stp_health}\n"
+            f"  ASP ACTIVE: {asp_active}\n"
             f"  PERSISTENT CORE: {'HEALTHY' if current and live_path['status'] == 'HEALTHY' else 'DEGRADED' if current else 'OFF'}\n"
             f"  ASPUP/ACK: [{color}]{self.route}[/{color}]\n  CAPTURE: {'ON' if cap['active'] else 'OFF'}\n"
             f"  SCCP: NOT INSTALLED\n  TCAP: NOT INSTALLED\n  MAP: NOT INSTALLED\n"
@@ -206,6 +210,18 @@ class TelecomApp(App):
             self.call_from_thread(self.write_log, f"[red]OsmoSTP: {exc}[/red]")
         self.call_from_thread(self.refresh_view)
 
+    @work(thread=True, exclusive=True)
+    def verify_asp_active(self):
+        from .activation import activation_probe
+        result = activation_probe()
+        self.call_from_thread(self.finish_activation, result)
+
+    def finish_activation(self, result):
+        self.activation = result
+        self.write_log("[cyan]ASP activation result: " + str(result) + "[/cyan]")
+        self.refresh_view()
+
+    def action_asp_activate(self): self.verify_asp_active()
     def action_stp_start(self): self.operate_stp(False)
     def action_stp_stop(self): self.operate_stp(True)
     def action_core_start(self): self.operate_core(False)
