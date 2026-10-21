@@ -10,6 +10,10 @@ def main():
     parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="cmd")
     sub.add_parser("dashboard", help="Interactive terminal topology (optional Textual dependency)")
+    msisdn = sub.add_parser("msisdn-analyze", help="Offline MSISDN field counts in authorized PCAP files (masked)")
+    msisdn.add_argument("capture")
+    tbcd = sub.add_parser("msisdn-tbcd", help="Decode synthetic test TBCD digits, masked by default")
+    tbcd.add_argument("hex_bytes")
     sub.add_parser("test", help="Run real localhost SCTP/M3UA ASPUP exchange")
     sub.add_parser("network-test", help="Run three-process two-hop local SCTP/M3UA test")
     sub.add_parser("network-fail", help="Run two-hop test with destination ACK failure")
@@ -26,6 +30,15 @@ def main():
     sub.add_parser("routing-audit", help="Read-only audit of OsmoSTP AS, point-code and routing-context configuration")
     sub.add_parser("as-validate", help="Validate isolated two-ASP manifest against current config (read-only)")
     sub.add_parser("config-preflight", help="Read-only config safety and gap analysis")
+    sub.add_parser("phase1-candidate", help="Write an isolated review-only OsmoSTP candidate file")
+    routes = sub.add_parser("phase1-routes", help="Read-only check of candidate AS and route-table mapping")
+    routes.add_argument("--reference", default="/tmp/osmostp-vty-reference.xml")
+    sub.add_parser("phase1-associations", help="Probe both synthetic ASP management associations on isolated candidate")
+    concurrent = sub.add_parser("phase1-concurrent", help="Verify concurrent ASP activation and synthetic DATA receipt on candidate")
+    concurrent.add_argument("--observe-seconds", type=float, default=0, help="Hold both ASPs open for VTY inspection (0-30s)")
+    sub.add_parser("phase1-proof", help="Correlate concurrent destination receipt with isolated loopback PCAP")
+    reference = sub.add_parser("phase1-reference-check", help="Check OsmoSTP VTY reference commands (read-only)")
+    reference.add_argument("xml", help="Path to installed OsmoSTP VTY reference XML")
     sub.add_parser("config-backup", help="Create managed config backup")
     verify = sub.add_parser("config-verify-backup", help="Verify a managed backup checksum")
     verify.add_argument("path")
@@ -56,6 +69,16 @@ def main():
         except ImportError:
             parser.error("Dashboard needs Textual: pip install -e '.[tui]'")
         TelecomApp().run()
+    elif args.cmd == "msisdn-analyze":
+        from .msisdn_analysis import analyze_pcap
+        try: print(json.dumps(analyze_pcap(args.capture), indent=2))
+        except (OSError, RuntimeError, ValueError) as exc: parser.exit(2, f"MSISDN analysis error: {exc}\\n")
+    elif args.cmd == "msisdn-tbcd":
+        from .msisdn_analysis import decode_tbcd, mask_msisdn
+        try:
+            digits = decode_tbcd(bytes.fromhex(args.hex_bytes))
+            print(json.dumps({"masked": mask_msisdn(digits), "digit_count":len(digits)}, indent=2))
+        except ValueError as exc: parser.exit(2, f"TBCD decode error: {exc}\\n")
     elif args.cmd in ("test", "fail"):
         try:
             print(json.dumps(run_exchange(fail=args.cmd == "fail"), indent=2))
@@ -89,6 +112,30 @@ def main():
     elif args.cmd == "delivery-demo":
         from .delivery_demo import run_delivery_demo
         print(json.dumps(run_delivery_demo(), indent=2))
+    elif args.cmd == "phase1-proof":
+        from .phase1_pcap import verify_with_capture
+        print(json.dumps(verify_with_capture(), indent=2))
+    elif args.cmd == "phase1-concurrent":
+        from .phase1_concurrent import exercise
+        print(json.dumps(exercise(observation_seconds=args.observe_seconds), indent=2))
+    elif args.cmd == "phase1-associations":
+        from .phase1_association import probe_candidate
+        print(json.dumps(probe_candidate(), indent=2))
+    elif args.cmd == "phase1-reference-check":
+        from .phase1_reference import check_reference
+        try: print(json.dumps(check_reference(args.xml), indent=2))
+        except (OSError, ValueError, __import__("xml.etree.ElementTree", fromlist=["ParseError"]).ParseError) as exc: parser.exit(2, f"VTY reference error: {exc}\\n")
+    elif args.cmd == "phase1-routes":
+        from .phase1_routes import candidate_with_routes, route_command_supported
+        try:
+            report = candidate_with_routes()
+            report["installed_vty_route_command_supported"] = route_command_supported(args.reference)
+            print(json.dumps(report, indent=2))
+        except (OSError, ValueError) as exc: parser.exit(2, f"Route preflight error: {exc}\\n")
+    elif args.cmd == "phase1-candidate":
+        from .phase1_candidate import write_candidate
+        try: print(json.dumps(write_candidate(), indent=2))
+        except (OSError, ValueError) as exc: parser.exit(2, f"Candidate error: {exc}\\n")
     elif args.cmd in ("config-preflight","config-backup","config-verify-backup","config-restore"):
         from . import config_safety, osmostp
         try:

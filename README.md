@@ -339,3 +339,120 @@ telecom config-backup
 **Explicit restore procedure (only if needed):** stop the managed OsmoSTP separately with `telecom stp-stop`, review the intended backup and current file checksum, then run `telecom config-restore BACKUP --expect-current-sha256 CURRENT_SHA256`. Restore refuses to overwrite when the service is reported running, the backup hash mismatches, or the current file has changed since review. It does **not** restart OsmoSTP. Config syntax compatibility must still be checked against the installed OsmoSTP version before deployment. Do not manually expose M3UA or VTY outside 127.0.0.1.
 
 The current release supports static validation and backup safety, **not verified end-to-end SS7 DATA routing**. The latter remains UNVERIFIED until an actual isolated destination receives the test DATA and corresponding captures are validated.
+
+## Phase 1 — candidate routing preflight (not yet operational)
+
+This development branch adds an **offline review-only** candidate configuration for two isolated loopback ASPs and a version-aware VTY command reference checker. It deliberately does not touch the managed running OsmoSTP or its backups.
+
+```bash
+git fetch origin
+git switch feature/phase1-routing-preflight
+source .venv/bin/activate
+pip install -e '.[tui,dev]'
+python -m unittest discover -s tests -v
+telecom phase1-reference-check /tmp/osmostp-vty-reference.xml
+telecom phase1-candidate
+```
+
+The candidate is saved once to `~/.local/state/d3faulth-telecom/candidates/osmo-stp-phase1.cfg`. Read it with `cat`; the command refuses to overwrite an existing file. The candidate proposes a separate M3UA listener on 127.0.0.1:29165 with synthetic point codes 23, 42 and routing contexts 100, 200. Static configuration and VTY-command checks do **not** prove that OsmoSTP accepts the complete config, that its ASP port mapping is correct, or that DATA can reach the receiver.
+
+**Do not start or install this candidate yet.** An isolated startup needs VTY port isolation too (the default VTY listener may conflict), and the ASP-to-route semantics must be validated against OsmoSTP 2.1.0 on Kali. The existing osmo-stp.cfg and running service should remain unchanged. Neither routing nor end-to-end delivery is verified.
+
+### Candidate listener correction (Phase 1)
+OsmoSTP 2.1.0 VTY reference confirms `bind A.B.C.D [PORT]` and `accept-asp-connections (pre-configured|dynamic-permitted)`. Candidate now uses VTY `127.0.0.1:4240`, M3UA `127.0.0.1:29165`, and `accept-asp-connections pre-configured`. The routing-key allocation policy separately remains `static-only`.
+
+**If you already generated the earlier candidate**, preserve it before creating a replacement:
+
+```bash
+old="$HOME/.local/state/d3faulth-telecom/candidates/osmo-stp-phase1.cfg"
+mv -n "$old" "${old}.prior-review"
+telecom phase1-candidate
+```
+
+Inspect the new file and rerun tests. Never launch the candidate as a second service until syntax and port isolation are verified in the installed environment. This branch still makes no live routing claim.
+
+### Kali point-code parse checkpoint
+An isolated 8-second startup test against installed OsmoSTP 2.1.0 accepted `point-code 0.0.1`, `routing-key 100 0.2.7`, and `routing-key 200 0.5.2`; the process exited from the intended timeout (124). OsmoSTP emitted `ASP Restart for server not implemented yet!` for each static ASP. This validates startup parsing only, **not** M3UA association or DATA delivery. The generated candidate still requires isolated listener and end-to-end tests. Preserve prior candidate files when regenerating.
+
+### Phase 1 association verification (separate candidate only)
+
+`telecom phase1-associations` probes the fixed local destination `127.0.0.1:29165` using individual SCTP sockets bound to `127.0.0.2` and `127.0.0.3`. It attempts ASPUP and ASPAC management exchanges, records observed ACK types or failures separately, and **never** sends M3UA DATA. Each record and the summary keep `routing: UNVERIFIED` regardless of ACK success. Static ASP association/port matching may fail; logs must determine why.
+
+Start the validated candidate temporarily in one shell and probe during its lifetime in another:
+
+```bash
+# Terminal 1 — only this isolated candidate, not the managed primary:
+candidate="$HOME/.local/state/d3faulth-telecom/candidates/osmo-stp-phase1-pc3-test.cfg"
+timeout --signal=TERM --kill-after=3s 35s osmo-stp -c "$candidate" > /tmp/osmostp-phase1-associations.log 2>&1
+```
+
+```bash
+# Terminal 2 — run promptly while terminal 1 is active:
+telecom phase1-associations
+```
+
+Then review `/tmp/osmostp-phase1-associations.log` and `telecom stp-status`. A clean management ACK is not evidence of AS membership or forwarding. If binding/activation fails, **do not** adapt addresses to external networks. Capture local logs for diagnosis. Main and the original managed config are unchanged.
+
+### Unexpected M3UA activation response details
+
+The `telecom phase1-associations` probe now returns `response_details` for each management response (message name, class, type, length and raw hex). Unexpected responses additionally populate `unexpected_response`, and M3UA ERR frames expose the parsed numeric error code and a best-effort description from the existing decoder. Keep numeric codes and raw bytes as the primary evidence when debugging; mapping descriptions may need independent standards verification.
+
+Use the same bounded, isolated candidate startup documented above, then run `telecom phase1-associations` from the activated project's virtual environment while it is listening. This change sends no DATA and does not make routing healthy.
+
+### Phase 1 NOTIFY-aware management probe
+The association probe recognizes M3UA NOTIFY (class 0/type 1), parses status and routing-context parameters, and waits up to 3 seconds / 12 responses per handshake stage for the expected ACK. It retains an ordered `responses` list of names and `response_details` records with raw packet hex, while reporting M3UA ERR separately. NOTIFY with status 1/2 is displayed as AS_INACTIVE. Use the same two-terminal, bounded candidate startup as above. No M3UA DATA is sent and routing remains UNVERIFIED.
+
+### Concurrent management and synthetic DATA test (Phase 1)
+
+After running unit tests, launch the isolated, parser-tested candidate on `127.0.0.1:29165` for a bounded period in Terminal 1. Do not modify the managed service on port 29065:
+
+```bash
+candidate="$HOME/.local/state/d3faulth-telecom/candidates/osmo-stp-phase1-pc3-test.cfg"
+timeout --signal=TERM --kill-after=3s 40s osmo-stp -c "$candidate" > /tmp/osmostp-phase1-concurrent.log 2>&1
+```
+
+In Terminal 2, while the candidate is listening:
+
+```bash
+cd ~/d3faulth-telecom
+source .venv/bin/activate
+telecom phase1-concurrent
+# Optional: rerun bounded candidate start and then execute:
+telecom phase1-proof
+```
+
+The first command keeps destination and source SCTP associations open together, validates ASPUP_ACK/ASPAC_ACK for each, sends the fixed synthetic M3UA DATA marker from point code 23 to 42, and verifies actual destination socket receipt. It never controls a service or contacts off-loopback addresses. The second command captures only loopback SCTP port 29165 with tshark, then checks for at least two decoded M3UA DATA frames and receiver receipt. This is corroboration, not exhaustive per-packet cryptographic correlation. Check the returned `delivery`, `data_frames`, and OsmoSTP log before any merge. If the test fails, routing stays UNVERIFIED; status must not be inferred from ASP activation alone. A non-running candidate causes a connection failure, not a fallback to the primary service.
+
+### Phase 1 post-DATA diagnostics
+
+`telecom phase1-concurrent` now records a `post_data_responses` object with separate `source` and `destination` ordered arrays. For M3UA ERROR and NOTIFY frames, records include class, type, raw hex, decoded error code or NOTIFY status and routing contexts. Unexpected DATA or malformed responses are preserved as evidence rather than silently ignored. No routing context is added to outgoing DATA by this change; OsmoSTP configuration is unchanged. Receiver receipt alone does not mark PCAP or routing as verified. Start the bounded isolated OsmoSTP candidate first and rerun this command while the candidate is listening.
+
+### Live 15-second AS/route observation
+
+Run the isolated candidate on 127.0.0.1:29165 / VTY 127.0.0.1:4240, ensuring no other candidate occupies these ports. From a second terminal run `telecom phase1-concurrent --observe-seconds 15`. After both ASPAC acknowledgments the command prints a readiness message and **holds both SCTP associations open for 15 seconds before sending the synthetic DATA message**. While the pause is active, connect via `telnet 127.0.0.1 4240` from another terminal and enter:
+
+```
+show cs7 instance 0 as active
+show cs7 instance 0 asp
+show cs7 instance 0 route
+```
+
+The pause is bounded between 0 and 30 seconds and the sockets close afterward. Save VTY output before the pause ends; AS_DOWN after the process finishes is expected. Neither the primary managed OsmoSTP nor its configuration is changed. The observation window proves neither delivery nor packet capture; routing stays UNVERIFIED until actual corroborating evidence exists.
+
+### Phase 1 route-table preflight
+
+The observed OsmoSTP log `MTP-TRANSFER.req for DPC 42: no route!` and the empty `show cs7 instance 0 route` establish that the isolated test did not find an MTP forwarding route. The route-key declarations alone do not prove such a route exists.
+
+Run `telecom phase1-routes --reference /tmp/osmostp-vty-reference.xml` to compare the candidate's explicit route entries against point codes 0.2.7 and 0.5.2 and check whether the installed VTY supports `update route POINT_CODE MASK linkset LS_NAME` inside `config-cs7-rt`. This is a **read-only** audit. It intentionally does not generate an executable route candidate yet: the appropriate mask notation and whether the AS name can serve as a linkset target must first be verified for installed OsmoSTP 2.1.0. Neither primary nor candidate service is modified; forwarding and DATA receipt remain unverified.
+
+## Offline MSISDN analysis (authorized captures only)
+
+The lab includes a conservative MSISDN field counter for **local PCAP/PCAPNG files** already obtained through authorized private network or test-SIM activity. It never monitors a radio/network interface, does not connect to an SS7 peer, and displays no extracted phone numbers.
+
+```bash
+telecom msisdn-analyze /path/to/authorized-capture.pcapng
+# TBCD self-test using artificial bytes (1234567, displayed masked):
+telecom msisdn-tbcd 214365f7
+```
+
+The parser delegates protocol dissection to an installed `tshark`, searches only explicitly named MSISDN fields in `gsm_map`/E.164-decoded traffic, and reports counts by field type. Other telephone-number fields, nonstandard dissectors, encrypted traces and raw undecoded TBCD blobs are intentionally not inferred. The standalone TBCD helper decodes low-nibble-first synthetic bytes and masks the result. Limits: 100 MiB input, 32 MiB decoded JSON, 40-second decode timeout. Capture metadata remains local. A zero result means no matching decoded MSISDN fields, **not** that subscriber identifiers are absent from every packet. Never upload captures containing real identifiers to a public repository.
