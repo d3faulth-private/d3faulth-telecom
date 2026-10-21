@@ -13,9 +13,17 @@ M3UA_PPID = 3
 class SCTPSendError(RuntimeError):
     pass
 
-def send_m3ua(sock, payload, library=None):
+def send_m3ua(sock, payload, library=None, *, stream=0):
     if not isinstance(payload, bytes) or not payload:
         raise ValueError("M3UA payload must be nonempty bytes")
+    if stream not in (0, 1):
+        raise ValueError("Only lab management stream 0 and DATA stream 1 are supported")
+    if len(payload) < 4:
+        raise ValueError("M3UA header required")
+    if payload[2] == 1 and stream != 1:
+        raise ValueError("M3UA DATA must use stream 1")
+    if payload[2] != 1 and stream != 0:
+        raise ValueError("M3UA management must use stream 0")
     if sock.family != socket.AF_INET or sock.getpeername()[0] != "127.0.0.1":
         raise SCTPSendError("Only connected IPv4 loopback test sockets are supported")
     if library is None:
@@ -32,7 +40,7 @@ def send_m3ua(sock, payload, library=None):
     send.restype = ctypes.c_int
     data = ctypes.create_string_buffer(payload)
     sent = send(sock.fileno(), data, len(payload), None, 0,
-                socket.htonl(M3UA_PPID), 0, 0, 0, 0)
+                socket.htonl(M3UA_PPID), 0, stream, 0, 0)
     if sent != len(payload):
         raise SCTPSendError(f"sctp_sendmsg returned {sent} for {len(payload)} bytes")
     return sent

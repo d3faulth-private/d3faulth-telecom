@@ -252,3 +252,90 @@ telecom verify-stp-capture
 `verify-stp-capture` launches a short tshark recording of **loopback SCTP port 29065**, executes the existing M3UA ASPUP / ASPAC activation probe against the managed OsmoSTP service, and reads its recorded M3UA management acknowledgments. It requires tshark/dumpcap capture permissions. Recorded PCAPs are saved under `~/.local/state/d3faulth-telecom/osmostp-captures/` and are not uploaded.
 
 `verified_management_exchange` is set only when the activation probe reports ACTIVE **and** the capture contains both ASPUP_ACK and ASPAC_ACK. `ss7_data_routing` stays UNVERIFIED and `ss7_data_route_healthy` stays false. The next milestone is independently configured lab data endpoints routed through OsmoSTP and matching destination receipt. No external carrier access or subscriber-data lookups are implemented.
+
+## v0.8 experimental local M3UA DATA route test
+
+This isolated test creates two actual SCTP ASP connections bound to `127.0.0.2` and `127.0.0.3`, sends only the built-in synthetic M3UA DATA marker using fixed lab point codes 23 and 42, and listens for the same bytes on the second association. Simultaneously it captures `lo` traffic to the managed OsmoSTP listener on `127.0.0.1:29065`.
+
+```bash
+git fetch origin
+git switch feature/v0.8-local-data-route
+source .venv/bin/activate
+pip install -e '.[tui,dev]'
+python -m unittest discover -s tests -v
+telecom stp-status
+telecom local-data-route
+```
+
+**No arbitrary targets, identifiers, or payloads are supported.** `route_healthy: true` requires the matching payload to arrive on the destination association and at least two M3UA DATA frames to appear in the local PCAP. A successful ASPAC acknowledgment alone never marks the route healthy.
+
+**Important:** An already running OsmoSTP with only dynamic ASP acceptance may not have usable AS routing keys or destination point-code routes. If so, the test reports UNVERIFIED; it does not silently rewrite the running STP's configuration. Use operator-documented Osmocom test AS/ASP routing-key configuration in a separately managed isolated environment before repeating. This experimental stage has not been verified against Kali yet.
+
+Source information: Osmocom OsmoMSC manual sections on CS7 instance, ASP/AS, routing keys, and OsmoSTP M3UA, and Osmocom osmo-stp example configurations.
+
+### DATA stream compatibility correction
+
+Your Kali capture showed 10 negotiated outbound/inbound SCTP streams, a synthetic M3UA DATA frame sent on stream 0, and OsmoSTP M3UA ERR code 9 (Invalid Stream Identifier). The laboratory sender now places ASPUP/ASPAC on stream 0 and the fixed synthetic M3UA DATA message on stream 1 with PPID 3. It also inspects an immediate source-association response for a management ERR and includes it under `m3ua_error` when received.
+
+Update and verify:
+
+```bash
+git pull origin feature/v0.8-local-data-route
+source .venv/bin/activate
+python -m unittest discover -s tests -v
+telecom stp-status
+telecom local-data-route
+```
+
+This corrects the stream selection only. If OsmoSTP still cannot route to point code 42, the destination's local Application Server and routing-key configuration remain unverified. Do not equate ASP ACTIVE or a single ingress DATA frame with successful delivery. The new code has not been live-tested on Kali; `main` remains unchanged.
+
+## v0.8.1 routing configuration audit
+
+Use `telecom routing-audit` to review the existing local OsmoSTP configuration and recent logs without restarting, reconfiguring or sending any traffic. It reports explicit AS/ASP definitions, routing contexts, point codes and the observed `unable to uniquely identify the AS` diagnostic. It does **not** establish that configured routes actually function.
+
+```bash
+git fetch origin
+git switch feature/v0.8.1-routing-audit
+source .venv/bin/activate
+python -m unittest discover -s tests -v
+telecom routing-audit
+```
+
+The auditor is static, uses conservative error classifications and always leaves signaling routing UNVERIFIED. It never modifies or generates an OsmoSTP configuration.
+
+## v0.8.2 — Isolated AS/ASP manifest validation
+
+This read-only feature compares the existing OsmoSTP configuration with a fixed two-ASP **expectation manifest** (source `127.0.0.2` point code 23 / routing context 100; destination `127.0.0.3` point code 42 / routing context 200; STP `127.0.0.1:29065`). These are **expected test values**, not claims about the current configuration.
+
+```bash
+git fetch origin
+git switch feature/v0.8.2-as-validation
+source .venv/bin/activate
+python -m unittest discover -s tests -v
+telecom as-validate | tee /tmp/as-before.json
+# After independently approved and tested lab configuration changes:
+telecom as-validate | tee /tmp/as-after.json
+telecom as-compare /tmp/as-before.json /tmp/as-after.json
+```
+
+No services are restarted or modified. This text comparison highlights missing AS declarations, routing contexts and point codes, but cannot verify runtime routing or whether a routing key is associated with the correct ASP. The command deliberately returns `configuration_ready: false` and leaves the route UNVERIFIED until a separately verified end-to-end delivery test is available.
+
+## v0.8.3 — configuration safety and rollback
+
+This is a conservative **configuration validation checkpoint**. The local OsmoSTP instance is not modified unless the operator explicitly invokes `config-restore`; this branch never generates or installs an AS/ASP routing configuration.
+
+```bash
+git fetch origin
+git switch feature/v0.8.3-config-safety
+source .venv/bin/activate
+pip install -e '.[tui,dev]'
+python -m unittest discover -s tests -v
+telecom config-preflight
+telecom config-backup
+```
+
+`config-preflight` checks static loopback binding, VTY risk indicators, expected lab AS/ASP and point-code definitions and logs; `configuration_ready` remains false until separately verified. Backups are timestamped, integrity-labelled and permission-restricted under `~/.local/state/d3faulth-telecom/config-backups`. To check a saved backup, run `telecom config-verify-backup PATH`.
+
+**Explicit restore procedure (only if needed):** stop the managed OsmoSTP separately with `telecom stp-stop`, review the intended backup and current file checksum, then run `telecom config-restore BACKUP --expect-current-sha256 CURRENT_SHA256`. Restore refuses to overwrite when the service is reported running, the backup hash mismatches, or the current file has changed since review. It does **not** restart OsmoSTP. Config syntax compatibility must still be checked against the installed OsmoSTP version before deployment. Do not manually expose M3UA or VTY outside 127.0.0.1.
+
+The current release supports static validation and backup safety, **not verified end-to-end SS7 DATA routing**. The latter remains UNVERIFIED until an actual isolated destination receives the test DATA and corresponding captures are validated.
