@@ -1,6 +1,7 @@
 """D3FAULTH Telecom Lab v0.2 — real-event terminal dashboard."""
 from collections import deque
 from datetime import datetime, timezone
+import time
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.widgets import Header, Footer, Static, RichLog
@@ -8,7 +9,7 @@ from textual.containers import Horizontal, Vertical
 from textual import work
 from rich.text import Text
 from .lab import run_exchange, recent_events
-from . import capture
+from . import capture, persistent
 from .topology import topology_render
 
 SPRITES = {
@@ -21,7 +22,7 @@ SPARK = "▁▂▃▄▅▆▇█"
 
 class TelecomApp(App):
     TITLE = "D3FAULTH // TELECOM LAB"
-    SUB_TITLE = "SIGNALING OPERATIONS • v0.3.1"
+    SUB_TITLE = "SIGNALING OPERATIONS • v0.4"
     CSS = """
     Screen { background: #070e13; color: #b6dadd; }
     Header, Footer { background: #14222b; color: #4ad9ed; }
@@ -40,6 +41,8 @@ class TelecomApp(App):
     BINDINGS = [
         Binding("t", "test", "Test"),
         Binding("n", "network_test", "Two-hop network"),
+        Binding("s", "core_start", "Start persistent core"),
+        Binding("z", "core_stop", "Stop persistent core"),
         Binding("shift+n", "network_fault", "Two-hop fault"),
         Binding("f", "fail", "Fault"),
         Binding("c", "capture_start", "Capture"),
@@ -94,14 +97,25 @@ class TelecomApp(App):
             self.write_log(f"[{color}]{e['at'][11:19]} [{kind}] {e['message']}[/{color}]")
         self._seen = len(events)
         self.rates.append(sum(1 for e in fresh if e["kind"] in ("send", "recv")))
-        top_width = max(58, self.query_one("#topology", Static).size.width - 6)
+        core = persistent.state()
+        live_routes = core.get("routes", [])
+        current = bool(core["running"] and core.get("observed_at")
+                       and time.time() - core["observed_at"] < 7
+                       and len(live_routes) == 2)
+        live_path = None
+        if current:
+            first, second = live_routes[1], live_routes[0]
+            both = first["status"] == "HEALTHY" and second["status"] == "HEALTHY"
+            live_path = {"status": "HEALTHY" if both else "FAILED",
+                         "segments": [first, second]}
+        top_width = max(64, self.query_one("#topology", Static).size.width - 6)
         self.query_one("#topology", Static).update(
-            topology_render(top_width, self.route, self.path))
+            topology_render(top_width, self.route, live_path if current else self.path))
         color = "green" if self.route == "HEALTHY" else "red" if self.route == "FAILED" else "grey62"
         cap = capture.status()
         self.query_one("#status", Static).update(
             f" MODE: LOCAL LAB   •   SINGLE-HOP: {self.route}   •   TWO-HOP: {self.path['status'] if self.path else 'UNTESTED'}"
-            f"   •   CAPTURE: {'RECORDING' if cap['active'] else 'OFF'}   •   LAST TEST: {self.last_at}")
+            f"   •   CORE: {'LIVE' if current else 'OFF/STALE'}   •   CAPTURE: {'ON' if cap['active'] else 'OFF'}")
         values = list(self.rates)
         chart = "".join(SPARK[min(7, n)] for n in values)
         packets = capture.packet_metrics()
@@ -109,6 +123,7 @@ class TelecomApp(App):
             f"[bold cyan]┌─ LIVE TELEMETRY[/bold cyan]\n\n"
             f"  LAB EVENT COUNTER (NOT PCAP)\n  [green]{chart}[/green]\n  {values[-1]} logged events in sample\n\n"
             f"  PCAP SCTP FRAMES: {packets['count'] if packets['count'] is not None else 'N/A'}\n"
+            f"  PERSISTENT CORE: {'HEALTHY' if current and live_path['status'] == 'HEALTHY' else 'DEGRADED' if current else 'OFF'}\n"
             f"  ASPUP/ACK: [{color}]{self.route}[/{color}]\n  CAPTURE: {'ON' if cap['active'] else 'OFF'}\n"
             f"  SCCP: NOT INSTALLED\n  TCAP: NOT INSTALLED\n  MAP: NOT INSTALLED\n"
             f"  SDR: NOT DETECTED")
@@ -116,9 +131,10 @@ class TelecomApp(App):
             "[bold cyan]┌─ ROUTE DIAGNOSTICS[/bold cyan]\n\n"
             f" TRANSPORT: SCTP\n ENDPOINT: loopback\n PORT: 29055\n"
             f" SINGLE-HOP: {self.route}\n TWO-HOP: {self.path['status'] if self.path else 'UNTESTED'}\n LAST VERIFIED: {self.last_at}\n"
+            f" CORE: {'LIVE' if current else 'OFF/STALE'}\n"
             f" ERROR: {self.last_error[:42]}\n\n"
             f" CAPTURE FILE:\n {str(cap['file'] or 'None')[-38:]}\n\n"
-            " T test  F fault\n C record  X stop\n W Wireshark  Q quit")
+            " S core start  Z core stop\n T test  F fault\n C record  X stop\n W Wireshark  Q quit")
 
     @work(thread=True, exclusive=True)
     def execute_test(self, fail=False):
@@ -166,6 +182,18 @@ class TelecomApp(App):
         self.write_log(f"[cyan]Two-hop transport: {result['status']} | {result.get('details', {})}[/cyan]")
         self.refresh_view()
 
+    @work(thread=True, exclusive=True)
+    def operate_core(self, stopping=False):
+        try:
+            result = persistent.stop() if stopping else persistent.start()
+            message = f"Persistent core: {'STOPPED' if stopping else 'STARTED'} (PID {result.get('pid')})"
+            self.call_from_thread(self.write_log, "[cyan]" + message + "[/cyan]")
+        except Exception as exc:
+            self.call_from_thread(self.write_log, "[red]Persistent core error: " + str(exc) + "[/red]")
+        self.call_from_thread(self.refresh_view)
+
+    def action_core_start(self): self.operate_core(False)
+    def action_core_stop(self): self.operate_core(True)
     def action_network_test(self): self.execute_network(False)
     def action_network_fault(self): self.execute_network(True)
     def action_test(self): self.execute_test(False)

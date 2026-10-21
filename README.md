@@ -74,3 +74,26 @@ In the TUI press **N** to run the two-hop path test. Green or red route markers 
 
 Traffic graphs remain **event-log-derived, not actual per-second packet rates**. The v0.3 next milestone is PCAP-derived metrics plus real OsmoSTP services; neither is claimed complete. No external carrier gateways or subscribers are connected.
 
+
+## v0.4 persistent network core (development)
+
+Unlike one-shot v0.3 tests, the v0.4 supervisor starts two persistent **loopback-only** SCTP endpoints (relay on 29061 and destination responder on 29062) and probes the real M3UA ASPUP/ACK path every two seconds. The dashboard displays current probe health only when fresh; if the supervisor stops or measurements are stale, the core state is OFF/STALE. This is **not** a carrier-connected STP, MSC, HLR, or MAP/TCAP service.
+
+On Kali:
+
+```bash
+git fetch origin
+git switch feature/v0.4-persistent-core
+source .venv/bin/activate
+pip install -e '.[tui,dev]'
+python -m unittest discover -s tests -v
+telecom core-start
+telecom core-status
+telecom
+```
+
+In the dashboard, press **S** to start the persistent lab and **Z** to stop it. Use `telecom core-stop` after testing; exiting the dashboard does not stop the persistent core. Existing `T` and `N` one-shot tests remain available. The topology colors are based on health measurements; gray denotes unverified or disconnected links.
+
+To monitor the persistent endpoints in a separate terminal, use `sudo tshark -i lo -f 'sctp port 29061 or sctp port 29062'`; the earlier `C` shortcut still captures the v0.2 single-hop test on port 29055, not every persistent-core frame. PCAP counters only reflect the capture chosen by that shortcut, not the total core traffic. We will unify capture targets in a later version.
+
+If the status stays DEGRADED, inspect `~/.local/state/d3faulth-telecom/persistent-stderr.log`. No SDR required. No carrier or subscriber interrogation endpoints are exposed.
