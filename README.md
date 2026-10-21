@@ -370,3 +370,6 @@ telecom phase1-candidate
 ```
 
 Inspect the new file and rerun tests. Never launch the candidate as a second service until syntax and port isolation are verified in the installed environment. This branch still makes no live routing claim.
+
+### Kali point-code parse checkpoint
+An isolated 8-second startup test against installed OsmoSTP 2.1.0 accepted `point-code 0.0.1`, `routing-key 100 0.2.7`, and `routing-key 200 0.5.2`; the process exited from the intended timeout (124). OsmoSTP emitted `ASP Restart for server not implemented yet!` for each static ASP. This validates startup parsing only, **not** M3UA association or DATA delivery. The generated candidate still requires isolated listener and end-to-end tests. Preserve prior candidate files when regenerating.
