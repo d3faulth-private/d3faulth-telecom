@@ -78,8 +78,8 @@ def main():
         from .delivery_demo import run_delivery_demo
         print(json.dumps(run_delivery_demo(), indent=2))
     elif args.cmd == "local-data-route":
-        from .local_route import exercise
-        print(json.dumps(exercise(), indent=2))
+        from .route_verification import verify_route
+        print(json.dumps(verify_route(), indent=2))
     elif args.cmd == "verify-stp-capture":
         from .integration import verify_capture_session
         print(json.dumps(verify_capture_session(), indent=2))
