@@ -178,3 +178,18 @@ telecom
 ```
 
 Phase 3 is incomplete: configuring independent ASP/AS endpoints, OsmoSTP point-code routing, a supported SS7 data transfer, capture correlation, and returned destination receipt are the next tasks. No live-carrier routes or subscriber operations are enabled.
+
+### v0.6 Phase 3B: passive lab evidence audit
+
+New `telecom route-audit FILE.jsonl` command correlates timestamped events from two explicitly named **synthetic lab checkpoints**, `lab-source` (sent) and `lab-destination` (received), matching transaction ID, SHA-256 payload digest and timing window.
+
+Example lab evidence file (illustrative values, not real signaling captures):
+
+```jsonl
+{"transaction_id":"lab-01","node":"lab-source","direction":"sent","payload_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","timestamp":1.0}
+{"transaction_id":"lab-01","node":"lab-destination","direction":"received","payload_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","timestamp":1.2}
+```
+
+The command reports `CORRELATED` only for a unique matching pair. It **always reports `osmostp_routing: UNVERIFIED`** because correlated checkpoint records alone cannot prove forwarding through OsmoSTP. A future stage must gather verified, packet-level M3UA DATA evidence with a destination receipt, in the isolated test network, before declaring a signaling route healthy.
+
+To test: `python -m unittest discover -s tests -v` and `telecom route-audit path/to/lab-evidence.jsonl`. This increment does not send telecom messages, modify signaling configuration, or connect to subscribers.
