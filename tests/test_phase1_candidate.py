@@ -22,3 +22,16 @@ class Phase1CandidateTests(unittest.TestCase):
             self.assertTrue(path.is_file())
             with self.assertRaises(FileExistsError):
                 write_candidate(path)
+
+    def test_ports_and_supported_listener_value(self):
+        from d3faulth_telecom.phase1_candidate import CONFIG_TEXT
+        self.assertIn("bind 127.0.0.1 4240", CONFIG_TEXT)
+        self.assertIn("listen m3ua 29165", CONFIG_TEXT)
+        self.assertIn("accept-asp-connections pre-configured", CONFIG_TEXT)
+        self.assertNotIn("accept-asp-connections static-only", CONFIG_TEXT)
+
+    def test_rejects_invalid_asp_acceptance(self):
+        from d3faulth_telecom.phase1_candidate import CONFIG_TEXT
+        changed=CONFIG_TEXT.replace("accept-asp-connections pre-configured", "accept-asp-connections static-only")
+        result=inspect_candidate(changed)
+        self.assertTrue(any("ASP acceptance" in issue for issue in result["issues"]))
