@@ -28,7 +28,8 @@ def main():
     sub.add_parser("config-preflight", help="Read-only config safety and gap analysis")
     sub.add_parser("phase1-candidate", help="Write an isolated review-only OsmoSTP candidate file")
     sub.add_parser("phase1-associations", help="Probe both synthetic ASP management associations on isolated candidate")
-    sub.add_parser("phase1-concurrent", help="Verify concurrent ASP activation and synthetic DATA receipt on candidate")
+    concurrent = sub.add_parser("phase1-concurrent", help="Verify concurrent ASP activation and synthetic DATA receipt on candidate")
+    concurrent.add_argument("--observe-seconds", type=float, default=0, help="Hold both ASPs open for VTY inspection (0-30s)")
     sub.add_parser("phase1-proof", help="Correlate concurrent destination receipt with isolated loopback PCAP")
     reference = sub.add_parser("phase1-reference-check", help="Check OsmoSTP VTY reference commands (read-only)")
     reference.add_argument("xml", help="Path to installed OsmoSTP VTY reference XML")
@@ -100,7 +101,7 @@ def main():
         print(json.dumps(verify_with_capture(), indent=2))
     elif args.cmd == "phase1-concurrent":
         from .phase1_concurrent import exercise
-        print(json.dumps(exercise(), indent=2))
+        print(json.dumps(exercise(observation_seconds=args.observe_seconds), indent=2))
     elif args.cmd == "phase1-associations":
         from .phase1_association import probe_candidate
         print(json.dumps(probe_candidate(), indent=2))
