@@ -35,3 +35,16 @@ class Phase1CandidateTests(unittest.TestCase):
         changed=CONFIG_TEXT.replace("accept-asp-connections pre-configured", "accept-asp-connections static-only")
         result=inspect_candidate(changed)
         self.assertTrue(any("ASP acceptance" in issue for issue in result["issues"]))
+
+    def test_383_point_codes_from_kali_startup(self):
+        from d3faulth_telecom.phase1_candidate import CONFIG_TEXT
+        self.assertIn("point-code 0.0.1", CONFIG_TEXT)
+        self.assertIn("routing-key 100 0.2.7", CONFIG_TEXT)
+        self.assertIn("routing-key 200 0.5.2", CONFIG_TEXT)
+        self.assertNotIn("routing-key 100 23", CONFIG_TEXT)
+        self.assertNotIn("routing-key 200 42", CONFIG_TEXT)
+
+    def test_rejects_previous_invalid_point_codes(self):
+        from d3faulth_telecom.phase1_candidate import CONFIG_TEXT
+        old=CONFIG_TEXT.replace("routing-key 100 0.2.7", "routing-key 100 23")
+        self.assertTrue(inspect_candidate(old)["issues"])
