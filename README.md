@@ -272,3 +272,19 @@ telecom local-data-route
 **Important:** An already running OsmoSTP with only dynamic ASP acceptance may not have usable AS routing keys or destination point-code routes. If so, the test reports UNVERIFIED; it does not silently rewrite the running STP's configuration. Use operator-documented Osmocom test AS/ASP routing-key configuration in a separately managed isolated environment before repeating. This experimental stage has not been verified against Kali yet.
 
 Source information: Osmocom OsmoMSC manual sections on CS7 instance, ASP/AS, routing keys, and OsmoSTP M3UA, and Osmocom osmo-stp example configurations.
+
+### DATA stream compatibility correction
+
+Your Kali capture showed 10 negotiated outbound/inbound SCTP streams, a synthetic M3UA DATA frame sent on stream 0, and OsmoSTP M3UA ERR code 9 (Invalid Stream Identifier). The laboratory sender now places ASPUP/ASPAC on stream 0 and the fixed synthetic M3UA DATA message on stream 1 with PPID 3. It also inspects an immediate source-association response for a management ERR and includes it under `m3ua_error` when received.
+
+Update and verify:
+
+```bash
+git pull origin feature/v0.8-local-data-route
+source .venv/bin/activate
+python -m unittest discover -s tests -v
+telecom stp-status
+telecom local-data-route
+```
+
+This corrects the stream selection only. If OsmoSTP still cannot route to point code 42, the destination's local Application Server and routing-key configuration remain unverified. Do not equate ASP ACTIVE or a single ingress DATA frame with successful delivery. The new code has not been live-tested on Kali; `main` remains unchanged.
