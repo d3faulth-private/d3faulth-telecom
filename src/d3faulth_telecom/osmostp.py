@@ -13,6 +13,7 @@ import subprocess
 import time
 from .lab import STATE
 from .protocol import ASPUP, ASPUP_ACK, encode_m3ua, decode_m3ua
+from .sctp_m3ua import send_m3ua, SCTPSendError
 
 PORT = 29065
 HOST = "127.0.0.1"
@@ -58,11 +59,11 @@ def _probe():
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_SCTP) as sock:
             sock.settimeout(1.5)
             sock.connect((HOST, PORT))
-            sock.sendall(encode_m3ua(*ASPUP))
+            send_m3ua(sock, encode_m3ua(*ASPUP))
             response = sock.recv(4096)
             ack = decode_m3ua(response)
             return ack["class"] == ASPUP_ACK[0] and ack["type"] == ASPUP_ACK[1]
-    except (OSError, ValueError):
+    except (OSError, ValueError, SCTPSendError):
         return False
 
 def status():
