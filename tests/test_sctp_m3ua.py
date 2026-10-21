@@ -29,7 +29,7 @@ class M3UAPPIDTests(unittest.TestCase):
         sock = Mock(family=socket.AF_INET)
         sock.getpeername.return_value = ("10.10.10.5", 29065)
         with self.assertRaises(SCTPSendError):
-            send_m3ua(sock, b"x", Mock())
+            send_m3ua(sock, b"\x01\x00\x03\x01\x00\x00\x00\x08", Mock())
 
     def test_rejects_short_send(self):
         lib = Mock()
