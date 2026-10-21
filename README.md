@@ -201,3 +201,19 @@ Run `telecom route-proof /path/to/route-observations.json` to audit a JSON array
 The verifier checks ordering, hashes, uniqueness and destination evidence. Its most favorable result is `EVIDENCE_COMPLETE`, with `route_healthy: false`, since references to PCAP frames can be supplied without the files and therefore cannot independently prove actual forwarding. A future capture-aware verifier must open those captures and validate packet contents and interface attribution before the dashboard can display a verified green OsmoSTP route.
 
 No real OsmoSTP M3UA DATA forwarding is implemented by this commit. `main` is unchanged. To test locally, run `python -m unittest discover -s tests -v`.
+
+### Phase 3D: PCAP evidence checks (development)
+
+The `telecom pcap-proof EVIDENCE.json CAPTURES_DIRECTORY` command opens explicitly supplied lab PCAPs using tshark and verifies referenced STP M3UA DATA frame numbers and SCTP PPID 3. It requires four stage records previously defined by `route-proof`. It **does not** send M3UA messages, configure OsmoSTP routing, or independently prove the payload or capture origin. Its strongest result is `CAPTURE_CORRELATED`, with `route_healthy: false`. Real STP forwarding and independently verified destination delivery still require an isolated multi-ASP integration exercise.
+
+For Kali testing:
+```bash
+git fetch origin
+git switch feature/v0.6-phase3d
+source .venv/bin/activate
+pip install -e '.[tui,dev]'
+python -m unittest discover -s tests -v
+telecom pcap-proof --help
+```
+
+Capture files must remain local and are never uploaded by this feature. `main` is not modified.
