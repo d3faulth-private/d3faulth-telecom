@@ -121,3 +121,11 @@ In the dashboard, press **O** to start OsmoSTP and **Shift+O** to stop it. From 
 Do not run this service with privileges or expose Osmocom management/VTY endpoints outside loopback. If your installed Osmocom release rejects the supplied VTY syntax, stop and report the error; do not weaken the bind or remove access protections. Avoid running the older persistent relay on conflicting ports (v0.4 uses 29061/29062, this adapter uses 29065).
 
 This development feature requires real validation on your Kali installation before merging. The current topology still depicts the custom persistent core, while the OsmoSTP health is separately displayed. No actual carrier signaling or live subscriber interrogation is included.
+
+### v0.5 compatibility hotfix (OsmoSTP 2.1.0)
+
+The OsmoSTP M3UA adapter now sends an explicit **SCTP PPID 3** using Linux `libsctp` instead of Python `sendall()`, which previously sent PPID 0. The custom one-shot tests use ports **29161/29162**, separate from the persistent core on **29061/29062**. The topology regression test now uses the renderer's minimum cell width.
+
+On Kali, check `ldconfig -p | grep libsctp`; if absent install the appropriate system library package (`sudo apt install libsctp1 lksctp-tools`). To verify the new probe, ensure the *existing managed OsmoSTP* process is running, then run `telecom stp-status`. The updated Python probe is effective without restarting the OsmoSTP service. A successful `m3ua_ack` indicates **ASPUP_ACK only**, not an M3UA ACTIVE state or functioning SCCP/MAP service.
+
+In the event of an unverified ACK, inspect `~/.local/state/d3faulth-telecom/osmostp.log`, and keep the service on 127.0.0.1. Do not forward ports to external networks. This fix is pending live validation on Kali.
