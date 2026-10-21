@@ -38,3 +38,20 @@ class M3UAPPIDTests(unittest.TestCase):
         sock.getpeername.return_value = ("127.0.0.1", 29065)
         with self.assertRaises(SCTPSendError):
             send_m3ua(sock, b"message", lib)
+
+    def test_data_uses_stream_one(self):
+        from d3faulth_telecom.m3ua_data import encode_data, PC_A, PC_B
+        payload = encode_data(PC_A, PC_B)
+        lib = Mock()
+        lib.sctp_sendmsg = FakeCall(len(payload))
+        sock = Mock(family=socket.AF_INET)
+        sock.getpeername.return_value = ("127.0.0.1", 29065)
+        sock.fileno.return_value = 9
+        send_m3ua(sock, payload, lib, stream=1)
+        self.assertEqual(lib.sctp_sendmsg.arguments[7], 1)
+        self.assertEqual(lib.sctp_sendmsg.arguments[5], socket.htonl(M3UA_PPID))
+
+    def test_data_on_management_stream_rejected(self):
+        from d3faulth_telecom.m3ua_data import encode_data, PC_A, PC_B
+        with self.assertRaises(ValueError):
+            send_m3ua(Mock(), encode_data(PC_A, PC_B), stream=0)
