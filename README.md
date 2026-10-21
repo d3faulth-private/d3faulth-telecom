@@ -288,3 +288,17 @@ telecom local-data-route
 ```
 
 This corrects the stream selection only. If OsmoSTP still cannot route to point code 42, the destination's local Application Server and routing-key configuration remain unverified. Do not equate ASP ACTIVE or a single ingress DATA frame with successful delivery. The new code has not been live-tested on Kali; `main` remains unchanged.
+
+## v0.8.1 routing configuration audit
+
+Use `telecom routing-audit` to review the existing local OsmoSTP configuration and recent logs without restarting, reconfiguring or sending any traffic. It reports explicit AS/ASP definitions, routing contexts, point codes and the observed `unable to uniquely identify the AS` diagnostic. It does **not** establish that configured routes actually function.
+
+```bash
+git fetch origin
+git switch feature/v0.8.1-routing-audit
+source .venv/bin/activate
+python -m unittest discover -s tests -v
+telecom routing-audit
+```
+
+The auditor is static, uses conservative error classifications and always leaves signaling routing UNVERIFIED. It never modifies or generates an OsmoSTP configuration.
