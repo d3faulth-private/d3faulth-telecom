@@ -18,6 +18,13 @@ def main():
     sub.add_parser("core-stop", help="Stop persistent lab services")
     sub.add_parser("stp-start", help="Start isolated OsmoSTP server")
     sub.add_parser("stp-status", help="Check OsmoSTP and M3UA acknowledgement")
+    sub.add_parser("signaling-state", help="Show verified transport/ASP states without inferring routing")
+    sub.add_parser("asp-activate-test", help="Test ASPAC_ACK on managed local OsmoSTP")
+    sub.add_parser("delivery-demo", help="Verify receipt from a separate localhost destination (not SS7 routing)")
+    evidence = sub.add_parser("route-audit", help="Correlate isolated lab checkpoint events without claiming SS7 route health")
+    evidence.add_argument("file", help="JSONL checkpoint file")
+    proof = sub.add_parser("route-proof", help="Audit four lab M3UA DATA checkpoints and STP capture references")
+    proof.add_argument("file", help="JSON array of observations")
     sub.add_parser("stp-stop", help="Stop the managed OsmoSTP server")
     sub.add_parser("fail", help="Inject a local ASPUP_ACK failure")
     sub.add_parser("events", help="Show captured lab event log")
@@ -49,6 +56,34 @@ def main():
         operation = {"stp-start": osmostp.start, "stp-status": osmostp.status, "stp-stop": osmostp.stop}[args.cmd]
         try: print(json.dumps(operation(), indent=2))
         except RuntimeError as exc: parser.exit(2, f"ERROR: {exc}\\n")
+    elif args.cmd == "route-proof":
+        from .route_proof import audit_route_file
+        try: print(json.dumps(audit_route_file(args.file), indent=2))
+        except (OSError, ValueError) as exc: parser.exit(2, f"Evidence error: {exc}\\n")
+    elif args.cmd == "route-audit":
+        from .route_evidence import audit_file
+        try: print(json.dumps(audit_file(args.file), indent=2))
+        except (OSError, ValueError) as exc: parser.exit(2, f"Evidence error: {exc}\\n")
+    elif args.cmd == "delivery-demo":
+        from .delivery_demo import run_delivery_demo
+        print(json.dumps(run_delivery_demo(), indent=2))
+    elif args.cmd == "asp-activate-test":
+        from .activation import activation_probe
+        print(json.dumps(activation_probe(), indent=2))
+    elif args.cmd == "signaling-state":
+        from . import osmostp
+        from .signaling_state import State
+        stp = osmostp.status()
+        model = State()
+        if stp["running"]:
+            model.transport(stp["m3ua_ack"])
+            if stp["m3ua_ack"]:
+                model.observe(3, 4)
+            elif not model.error:
+                model.error = "Process running; M3UA handshake unverified"
+        result = {"osmostp": stp, "signaling": model.snapshot(),
+                  "note": "ASP ACTIVE, routing, SCCP and MAP have not been verified"}
+        print(json.dumps(result, indent=2))
     elif args.cmd == "events":
         for entry in recent_events(30):
             print(json.dumps(entry))

@@ -129,3 +129,75 @@ The OsmoSTP M3UA adapter now sends an explicit **SCTP PPID 3** using Linux `libs
 On Kali, check `ldconfig -p | grep libsctp`; if absent install the appropriate system library package (`sudo apt install libsctp1 lksctp-tools`). To verify the new probe, ensure the *existing managed OsmoSTP* process is running, then run `telecom stp-status`. The updated Python probe is effective without restarting the OsmoSTP service. A successful `m3ua_ack` indicates **ASPUP_ACK only**, not an M3UA ACTIVE state or functioning SCCP/MAP service.
 
 In the event of an unverified ACK, inspect `~/.local/state/d3faulth-telecom/osmostp.log`, and keep the service on 127.0.0.1. Do not forward ports to external networks. This fix is pending live validation on Kali.
+
+## v0.6 experimental signaling-state groundwork
+
+The first v0.6 increment introduces an explicit protocol state model with three separate concepts: **SCTP established**, **M3UA ASP UP**, and **M3UA ASP ACTIVE**. An ASPUP_ACK proves ASP UP only; it does not establish ASP ACTIVE or routing.
+
+```bash
+git fetch origin
+git switch feature/v0.6-signaling-core
+source .venv/bin/activate
+pip install -e '.[tui,dev]'
+python -m unittest discover -s tests -v
+telecom signaling-state
+```
+
+`telecom signaling-state` checks the managed localhost OsmoSTP adapter. It reports observed ASPUP_ACK as `UP`, and always leaves routing `UNVERIFIED`. Actual ASPAC/ACK exchange, routing contexts, SCCP and TCAP decoding, multiple real Osmocom nodes and packet rate metrics are **not yet implemented**. Do not equate this state-model groundwork with a complete v0.6 network.
+
+### v0.6 Phase 2: one-shot ASP activation verification
+
+With the managed, localhost-only OsmoSTP running:
+
+```bash
+git pull origin feature/v0.6-signaling-core
+source .venv/bin/activate
+python -m unittest discover -s tests -v
+telecom asp-activate-test
+telecom
+```
+
+Press **A** in the TUI to run the same isolated protocol-state test. It sends ASPUP and (after receiving ASPUP_ACK) ASPAC on **one SCTP association**, using M3UA PPID 3. It reports ASP ACTIVE only on receipt of a genuine ASPAC_ACK; failures and unexpected messages remain unverified. The transaction ends after the check. No packet DATA, routing verification, subscriber lookup or MAP procedures are implemented. Dynamic OsmoSTP associations may require additional AS/routing-context configuration before activation is accepted. Do not expose signaling interfaces or change the loopback binding.
+
+This increment is awaiting Kali integration verification; it is not merged into main.
+
+### v0.6 Phase 3 (first increment): destination proof gate
+
+An ASPUP_ACK or ASPAC_ACK **cannot** mark an SS7 route HEALTHY. The new delivery proof gate requires matching transaction ID, destination identity, payload hash, receipt freshness, SCTP ESTABLISHED, and ASP ACTIVE.
+
+`telecom delivery-demo` demonstrates a **real localhost TCP transfer** to an independently running local receiver and validates the resulting receipt. It is deliberately labelled `TRANSPORT-DEMO`, **not SS7 routing through OsmoSTP**. The dashboard displays `SS7 ROUTING: UNVERIFIED` until an actual routed M3UA DATA transfer with destination receipt is implemented and verified.
+
+```bash
+git fetch origin
+git switch feature/v0.6-signaling-core
+source .venv/bin/activate
+pip install -e '.[tui,dev]'
+python -m unittest discover -s tests -v
+telecom delivery-demo
+telecom
+```
+
+Phase 3 is incomplete: configuring independent ASP/AS endpoints, OsmoSTP point-code routing, a supported SS7 data transfer, capture correlation, and returned destination receipt are the next tasks. No live-carrier routes or subscriber operations are enabled.
+
+### v0.6 Phase 3B: passive lab evidence audit
+
+New `telecom route-audit FILE.jsonl` command correlates timestamped events from two explicitly named **synthetic lab checkpoints**, `lab-source` (sent) and `lab-destination` (received), matching transaction ID, SHA-256 payload digest and timing window.
+
+Example lab evidence file (illustrative values, not real signaling captures):
+
+```jsonl
+{"transaction_id":"lab-01","node":"lab-source","direction":"sent","payload_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","timestamp":1.0}
+{"transaction_id":"lab-01","node":"lab-destination","direction":"received","payload_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","timestamp":1.2}
+```
+
+The command reports `CORRELATED` only for a unique matching pair. It **always reports `osmostp_routing: UNVERIFIED`** because correlated checkpoint records alone cannot prove forwarding through OsmoSTP. A future stage must gather verified, packet-level M3UA DATA evidence with a destination receipt, in the isolated test network, before declaring a signaling route healthy.
+
+To test: `python -m unittest discover -s tests -v` and `telecom route-audit path/to/lab-evidence.jsonl`. This increment does not send telecom messages, modify signaling configuration, or connect to subscribers.
+
+### Phase 3C evidence gate (work in progress)
+
+Run `telecom route-proof /path/to/route-observations.json` to audit a JSON array containing exactly one `source-tx`, `stp-rx`, `stp-tx` and `destination-rx` record for the same synthetic test transaction. Each record requires `transaction_id`, `stage`, `protocol: "M3UA-DATA"`, `payload_sha256` (64 lowercase hexadecimal characters) and a timestamp. STP ingress/egress records must include `capture_file` and `frame_number`; destination must include `receipt_verified: true`.
+
+The verifier checks ordering, hashes, uniqueness and destination evidence. Its most favorable result is `EVIDENCE_COMPLETE`, with `route_healthy: false`, since references to PCAP frames can be supplied without the files and therefore cannot independently prove actual forwarding. A future capture-aware verifier must open those captures and validate packet contents and interface attribution before the dashboard can display a verified green OsmoSTP route.
+
+No real OsmoSTP M3UA DATA forwarding is implemented by this commit. `main` is unchanged. To test locally, run `python -m unittest discover -s tests -v`.
