@@ -46,5 +46,10 @@ class State:
             self.asp = "DOWN" if name == "ASPDN_ACK" else "UP"
             self.routing = "UNVERIFIED"
 
+    def verify_route(self, delivery_result):
+        from .delivery import route_health
+        self.routing = route_health(delivery_result, self.sctp, self.asp)
+        return self.routing
+
     def snapshot(self):
         return asdict(self)
