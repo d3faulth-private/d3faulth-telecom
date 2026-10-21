@@ -13,6 +13,9 @@ def main():
     sub.add_parser("test", help="Run real localhost SCTP/M3UA ASPUP exchange")
     sub.add_parser("network-test", help="Run three-process two-hop local SCTP/M3UA test")
     sub.add_parser("network-fail", help="Run two-hop test with destination ACK failure")
+    sub.add_parser("core-start", help="Start persistent isolated SCTP laboratory")
+    sub.add_parser("core-status", help="Read persistent route measurements")
+    sub.add_parser("core-stop", help="Stop persistent lab services")
     sub.add_parser("fail", help="Inject a local ASPUP_ACK failure")
     sub.add_parser("events", help="Show captured lab event log")
     sub.add_parser("doctor", help="Check dependencies and local setup")
@@ -33,6 +36,11 @@ def main():
     elif args.cmd in ("network-test", "network-fail"):
         from .network import run_path
         print(json.dumps(run_path(fail=args.cmd == "network-fail"), indent=2))
+    elif args.cmd in ("core-start", "core-status", "core-stop"):
+        from . import persistent
+        operation = {"core-start": persistent.start, "core-status": persistent.state, "core-stop": persistent.stop}[args.cmd]
+        try: print(json.dumps(operation(), indent=2))
+        except RuntimeError as exc: parser.exit(2, f"ERROR: {exc}\\n")
     elif args.cmd == "events":
         for entry in recent_events(30):
             print(json.dumps(entry))
