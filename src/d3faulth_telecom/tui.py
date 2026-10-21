@@ -95,14 +95,13 @@ class TelecomApp(App):
         color = "green" if ok else "red" if bad else "grey62"
         wire = "━━━━▶━━" if ok else "╳╳╳╳╳╳" if bad else "┄┄┄┄┄┄"
         p = Text()
-        p.append("     MSC / UE                  STP TEST               HLR / SIM\n", style="bold cyan")
+        p.append("     ASP CLIENT                STP TEST               HLR / SIM\n", style="bold cyan")
         for i in range(3):
             p.append(SPRITES["MSC"][i] + "         " + SPRITES["STP"][i] + "          " + SPRITES["HLR"][i] + "\n", style="cyan")
-        p.append("          ", style="cyan")
-        p.append("┄┄┄┄┄┄┄┄┄", style="grey62")
-        p.append("           ", style="grey62")
+        p.append("         ", style="cyan")
         p.append(wire, style=f"bold {color}")
-        p.append("\n\n   PLANNED NODE              127.0.0.1:29055         PLANNED NODE\n", style="dim")
+        p.append("                    ┄┄┄┄┄┄", style="grey62")
+        p.append("\n\n   LOOPBACK CLIENT           127.0.0.1:29055         NOT IMPLEMENTED\n", style="dim")
         p.append("   SCTP/M3UA test exchange is localhost-only.\n", style="yellow")
         p.append("   HLR is disconnected; green refers only to local client ↔ test endpoint.", style="dim")
         self.query_one("#topology", Static).update(p)
