@@ -302,3 +302,20 @@ telecom routing-audit
 ```
 
 The auditor is static, uses conservative error classifications and always leaves signaling routing UNVERIFIED. It never modifies or generates an OsmoSTP configuration.
+
+## v0.8.2 — Isolated AS/ASP manifest validation
+
+This read-only feature compares the existing OsmoSTP configuration with a fixed two-ASP **expectation manifest** (source `127.0.0.2` point code 23 / routing context 100; destination `127.0.0.3` point code 42 / routing context 200; STP `127.0.0.1:29065`). These are **expected test values**, not claims about the current configuration.
+
+```bash
+git fetch origin
+git switch feature/v0.8.2-as-validation
+source .venv/bin/activate
+python -m unittest discover -s tests -v
+telecom as-validate | tee /tmp/as-before.json
+# After independently approved and tested lab configuration changes:
+telecom as-validate | tee /tmp/as-after.json
+telecom as-compare /tmp/as-before.json /tmp/as-after.json
+```
+
+No services are restarted or modified. This text comparison highlights missing AS declarations, routing contexts and point codes, but cannot verify runtime routing or whether a routing key is associated with the correct ASP. The command deliberately returns `configuration_ready: false` and leaves the route UNVERIFIED until a separately verified end-to-end delivery test is available.
