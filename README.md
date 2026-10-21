@@ -401,3 +401,24 @@ Use the same bounded, isolated candidate startup documented above, then run `tel
 
 ### Phase 1 NOTIFY-aware management probe
 The association probe recognizes M3UA NOTIFY (class 0/type 1), parses status and routing-context parameters, and waits up to 3 seconds / 12 responses per handshake stage for the expected ACK. It retains an ordered `responses` list of names and `response_details` records with raw packet hex, while reporting M3UA ERR separately. NOTIFY with status 1/2 is displayed as AS_INACTIVE. Use the same two-terminal, bounded candidate startup as above. No M3UA DATA is sent and routing remains UNVERIFIED.
+
+### Concurrent management and synthetic DATA test (Phase 1)
+
+After running unit tests, launch the isolated, parser-tested candidate on `127.0.0.1:29165` for a bounded period in Terminal 1. Do not modify the managed service on port 29065:
+
+```bash
+candidate="$HOME/.local/state/d3faulth-telecom/candidates/osmo-stp-phase1-pc3-test.cfg"
+timeout --signal=TERM --kill-after=3s 40s osmo-stp -c "$candidate" > /tmp/osmostp-phase1-concurrent.log 2>&1
+```
+
+In Terminal 2, while the candidate is listening:
+
+```bash
+cd ~/d3faulth-telecom
+source .venv/bin/activate
+telecom phase1-concurrent
+# Optional: rerun bounded candidate start and then execute:
+telecom phase1-proof
+```
+
+The first command keeps destination and source SCTP associations open together, validates ASPUP_ACK/ASPAC_ACK for each, sends the fixed synthetic M3UA DATA marker from point code 23 to 42, and verifies actual destination socket receipt. It never controls a service or contacts off-loopback addresses. The second command captures only loopback SCTP port 29165 with tshark, then checks for at least two decoded M3UA DATA frames and receiver receipt. This is corroboration, not exhaustive per-packet cryptographic correlation. Check the returned `delivery`, `data_frames`, and OsmoSTP log before any merge. If the test fails, routing stays UNVERIFIED; status must not be inferred from ASP activation alone. A non-running candidate causes a connection failure, not a fallback to the primary service.
