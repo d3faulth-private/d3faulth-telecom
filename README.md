@@ -217,3 +217,20 @@ telecom pcap-proof --help
 ```
 
 Capture files must remain local and are never uploaded by this feature. `main` is not modified.
+
+## v0.6 consolidated verification branch
+
+This branch adds a single read-only readiness command:
+
+```bash
+git fetch origin
+git switch feature/v0.6-completion
+source .venv/bin/activate
+pip install -e '.[tui,dev]'
+python -m unittest discover -s tests -v
+telecom verify-lab
+```
+
+The command checks managed OsmoSTP process state, M3UA ASPUP_ACK, same-association ASPAC_ACK, and tshark/Wireshark installation. It never reports an SS7 route healthy based solely on an activation exchange. `ss7_data_routing` remains `UNVERIFIED` until real lab DATA forwarding and independently confirmed destination receipt are both observed.
+
+**Known gap:** This increment does not itself provision a second OsmoSTP-connected ASP or run M3UA DATA through OsmoSTP. It is a consolidated diagnostic baseline for that integration, not completed Phase 3D routing. The branch is intentionally unmerged.
