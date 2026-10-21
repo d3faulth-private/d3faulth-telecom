@@ -67,3 +67,15 @@ def summarize(limit=12):
         return result.stdout.splitlines()[-limit:]
     except (OSError, subprocess.TimeoutExpired):
         return []
+
+def packet_metrics():
+    """Count SCTP frames in the saved capture; N/A when no readable PCAP exists."""
+    if not _file or not _file.is_file() or not shutil.which("tshark"):
+        return {"count": None}
+    try:
+        result = subprocess.run(["tshark", "-r", str(_file), "-Y", "sctp",
+                                 "-T", "fields", "-e", "frame.number"],
+                                text=True, capture_output=True, timeout=5, check=False)
+        return {"count": len(result.stdout.splitlines()) if result.returncode == 0 else None}
+    except (OSError, subprocess.TimeoutExpired):
+        return {"count": None}
