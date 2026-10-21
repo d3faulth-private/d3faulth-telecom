@@ -18,6 +18,7 @@ def main():
     sub.add_parser("core-stop", help="Stop persistent lab services")
     sub.add_parser("stp-start", help="Start isolated OsmoSTP server")
     sub.add_parser("stp-status", help="Check OsmoSTP and M3UA acknowledgement")
+    sub.add_parser("signaling-state", help="Show verified transport/ASP states without inferring routing")
     sub.add_parser("stp-stop", help="Stop the managed OsmoSTP server")
     sub.add_parser("fail", help="Inject a local ASPUP_ACK failure")
     sub.add_parser("events", help="Show captured lab event log")
@@ -49,6 +50,20 @@ def main():
         operation = {"stp-start": osmostp.start, "stp-status": osmostp.status, "stp-stop": osmostp.stop}[args.cmd]
         try: print(json.dumps(operation(), indent=2))
         except RuntimeError as exc: parser.exit(2, f"ERROR: {exc}\\n")
+    elif args.cmd == "signaling-state":
+        from . import osmostp
+        from .signaling_state import State
+        stp = osmostp.status()
+        model = State()
+        if stp["running"]:
+            model.transport(stp["m3ua_ack"])
+            if stp["m3ua_ack"]:
+                model.observe(3, 4)
+            elif not model.error:
+                model.error = "Process running; M3UA handshake unverified"
+        result = {"osmostp": stp, "signaling": model.snapshot(),
+                  "note": "ASP ACTIVE, routing, SCCP and MAP have not been verified"}
+        print(json.dumps(result, indent=2))
     elif args.cmd == "events":
         for entry in recent_events(30):
             print(json.dumps(entry))
