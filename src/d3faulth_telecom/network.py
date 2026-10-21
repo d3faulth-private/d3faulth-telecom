@@ -12,8 +12,8 @@ from .protocol import encode_m3ua, decode_m3ua, ASPUP, ASPUP_ACK
 from .lab import sctp_socket, event
 
 HOST = "127.0.0.1"
-RELAY_PORT = 29061
-DEST_PORT = 29062
+RELAY_PORT = 29161
+DEST_PORT = 29162
 
 def _listener(port, ready, output, fault=False):
     try:
