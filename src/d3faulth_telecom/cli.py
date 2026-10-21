@@ -25,6 +25,13 @@ def main():
     sub.add_parser("local-data-route", help="Attempt synthetic point-code DATA delivery between two localhost ASPs")
     sub.add_parser("routing-audit", help="Read-only audit of OsmoSTP AS, point-code and routing-context configuration")
     sub.add_parser("as-validate", help="Validate isolated two-ASP manifest against current config (read-only)")
+    sub.add_parser("config-preflight", help="Read-only config safety and gap analysis")
+    sub.add_parser("config-backup", help="Create managed config backup")
+    verify = sub.add_parser("config-verify-backup", help="Verify a managed backup checksum")
+    verify.add_argument("path")
+    restore = sub.add_parser("config-restore", help="Explicit restore; service must be stopped")
+    restore.add_argument("path")
+    restore.add_argument("--expect-current-sha256", required=True)
     compare = sub.add_parser("as-compare", help="Compare saved before/after validation JSON snapshots")
     compare.add_argument("before")
     compare.add_argument("after")
@@ -82,6 +89,15 @@ def main():
     elif args.cmd == "delivery-demo":
         from .delivery_demo import run_delivery_demo
         print(json.dumps(run_delivery_demo(), indent=2))
+    elif args.cmd in ("config-preflight","config-backup","config-verify-backup","config-restore"):
+        from . import config_safety, osmostp
+        try:
+            if args.cmd == "config-preflight": result = config_safety.preflight()
+            elif args.cmd == "config-backup": result = config_safety.backup_config()
+            elif args.cmd == "config-verify-backup": result = config_safety.verify_backup(args.path)
+            else: result = config_safety.restore_backup(args.path, expected_current_sha256=args.expect_current_sha256, service_running=osmostp.status()["running"])
+            print(json.dumps(result,indent=2))
+        except (OSError, ValueError, RuntimeError) as exc: parser.exit(2, f"Config safety error: {exc}\\n")
     elif args.cmd == "as-validate":
         from .as_validation import compare_config
         try: print(json.dumps(compare_config(), indent=2))
