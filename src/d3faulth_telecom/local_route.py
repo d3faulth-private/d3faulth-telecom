@@ -7,12 +7,14 @@ destination socket actually receives and validates that marker.
 import hashlib
 import json
 import socket
+import select
 import threading
 import time
 from . import osmostp
 from .protocol import encode_m3ua, decode_m3ua
 from .sctp_m3ua import send_m3ua
 from .m3ua_data import encode_data, decode_data, PC_A, PC_B, PAYLOAD
+from .m3ua_error import decode_error
 
 STP = ("127.0.0.1", 29065)
 SOURCE_IP, DEST_IP = "127.0.0.2", "127.0.0.3"
@@ -54,6 +56,13 @@ def exercise(timeout=5):
         source=_connect(SOURCE_IP)
         report["asp_up"]=True
         send_m3ua(source, encode_data(PC_A,PC_B), stream=1)
+        # Check for a real M3UA management ERR without assuming delivery.
+        readable, _, _ = select.select([source], [], [], 0.8)
+        if readable:
+            response = source.recv(4096)
+            decoded_error = decode_error(response)
+            if decoded_error is not None:
+                report["m3ua_error"] = decoded_error
         try:
             result=decode_data(dest.recv(4096))
             report["destination_received"]=True
