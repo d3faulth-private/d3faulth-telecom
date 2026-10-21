@@ -16,6 +16,9 @@ def main():
     sub.add_parser("core-start", help="Start persistent isolated SCTP laboratory")
     sub.add_parser("core-status", help="Read persistent route measurements")
     sub.add_parser("core-stop", help="Stop persistent lab services")
+    sub.add_parser("stp-start", help="Start isolated OsmoSTP server")
+    sub.add_parser("stp-status", help="Check OsmoSTP and M3UA acknowledgement")
+    sub.add_parser("stp-stop", help="Stop the managed OsmoSTP server")
     sub.add_parser("fail", help="Inject a local ASPUP_ACK failure")
     sub.add_parser("events", help="Show captured lab event log")
     sub.add_parser("doctor", help="Check dependencies and local setup")
@@ -39,6 +42,11 @@ def main():
     elif args.cmd in ("core-start", "core-status", "core-stop"):
         from . import persistent
         operation = {"core-start": persistent.start, "core-status": persistent.state, "core-stop": persistent.stop}[args.cmd]
+        try: print(json.dumps(operation(), indent=2))
+        except RuntimeError as exc: parser.exit(2, f"ERROR: {exc}\\n")
+    elif args.cmd in ("stp-start", "stp-status", "stp-stop"):
+        from . import osmostp
+        operation = {"stp-start": osmostp.start, "stp-status": osmostp.status, "stp-stop": osmostp.stop}[args.cmd]
         try: print(json.dumps(operation(), indent=2))
         except RuntimeError as exc: parser.exit(2, f"ERROR: {exc}\\n")
     elif args.cmd == "events":
