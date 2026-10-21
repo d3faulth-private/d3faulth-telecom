@@ -234,3 +234,21 @@ telecom verify-lab
 The command checks managed OsmoSTP process state, M3UA ASPUP_ACK, same-association ASPAC_ACK, and tshark/Wireshark installation. It never reports an SS7 route healthy based solely on an activation exchange. `ss7_data_routing` remains `UNVERIFIED` until real lab DATA forwarding and independently confirmed destination receipt are both observed.
 
 **Known gap:** This increment does not itself provision a second OsmoSTP-connected ASP or run M3UA DATA through OsmoSTP. It is a consolidated diagnostic baseline for that integration, not completed Phase 3D routing. The branch is intentionally unmerged.
+
+## v0.7 experimental signaling integration
+
+This branch introduces the first **packet-backed OsmoSTP management test**. It is not yet a routed SS7 DATA integration.
+
+```bash
+git fetch origin
+git switch feature/v0.7-signaling-integration
+source .venv/bin/activate
+pip install -e '.[tui,dev]'
+python -m unittest discover -s tests -v
+telecom stp-status
+telecom verify-stp-capture
+```
+
+`verify-stp-capture` launches a short tshark recording of **loopback SCTP port 29065**, executes the existing M3UA ASPUP / ASPAC activation probe against the managed OsmoSTP service, and reads its recorded M3UA management acknowledgments. It requires tshark/dumpcap capture permissions. Recorded PCAPs are saved under `~/.local/state/d3faulth-telecom/osmostp-captures/` and are not uploaded.
+
+`verified_management_exchange` is set only when the activation probe reports ACTIVE **and** the capture contains both ASPUP_ACK and ASPAC_ACK. `ss7_data_routing` stays UNVERIFIED and `ss7_data_route_healthy` stays false. The next milestone is independently configured lab data endpoints routed through OsmoSTP and matching destination receipt. No external carrier access or subscriber-data lookups are implemented.

@@ -21,7 +21,7 @@ def inspect_capture(path, frames, tshark="tshark"):
     if not frames or any(not isinstance(n, int) or n < 1 for n in frames):
         raise ValueError("Frame numbers must be positive integers")
     proc = subprocess.run([tshark, "-r", str(file), "-Y", "m3ua && m3ua.message_class == 1",
-                           "-T", "fields", "-e", "frame.number", "-e", "sctp.ppid",
+                           "-T", "fields", "-e", "frame.number", "-e", "sctp.data_payload_proto_id",
                            "-e", "frame.time_epoch", "-E", "separator=,"],
                           text=True, capture_output=True, timeout=15, check=False)
     if proc.returncode:
