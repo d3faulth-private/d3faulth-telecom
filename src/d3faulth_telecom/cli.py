@@ -25,6 +25,9 @@ def main():
     evidence.add_argument("file", help="JSONL checkpoint file")
     proof = sub.add_parser("route-proof", help="Audit four lab M3UA DATA checkpoints and STP capture references")
     proof.add_argument("file", help="JSON array of observations")
+    capproof = sub.add_parser("pcap-proof", help="Verify referenced lab M3UA DATA frames in local PCAPs")
+    capproof.add_argument("evidence", help="Four-stage evidence JSON file")
+    capproof.add_argument("captures", help="Directory of local PCAP files")
     sub.add_parser("stp-stop", help="Stop the managed OsmoSTP server")
     sub.add_parser("fail", help="Inject a local ASPUP_ACK failure")
     sub.add_parser("events", help="Show captured lab event log")
@@ -56,6 +59,10 @@ def main():
         operation = {"stp-start": osmostp.start, "stp-status": osmostp.status, "stp-stop": osmostp.stop}[args.cmd]
         try: print(json.dumps(operation(), indent=2))
         except RuntimeError as exc: parser.exit(2, f"ERROR: {exc}\\n")
+    elif args.cmd == "pcap-proof":
+        from .pcap_proof import audit_verified_captures
+        try: print(json.dumps(audit_verified_captures(args.evidence, args.captures), indent=2))
+        except (OSError, ValueError) as exc: parser.exit(2, f"Capture proof error: {exc}\\n")
     elif args.cmd == "route-proof":
         from .route_proof import audit_route_file
         try: print(json.dumps(audit_route_file(args.file), indent=2))
