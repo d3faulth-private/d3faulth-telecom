@@ -53,13 +53,13 @@ def exercise(timeout=5):
         report["destination_asp_active"]=True
         source=_connect(SOURCE_IP)
         report["asp_up"]=True
-        send_m3ua(source, encode_data(PC_A,PC_B))
+        send_m3ua(source, encode_data(PC_A,PC_B), stream=1)
         try:
             result=decode_data(dest.recv(4096))
             report["destination_received"]=True
             report["payload_matches"]=(result["payload"]==PAYLOAD and result["dpc"]==PC_B)
         except socket.timeout:
-            report["error"]="Destination timed out: check local AS routing-key and point-code configuration"
+            report["error"]="No destination M3UA DATA received; inspect routing keys, destination AS and M3UA ERR frames"
         except Exception as exc:
             report["error"]="Received data could not be verified: "+str(exc)
         report["route_healthy"]=bool(report["destination_received"] and report["payload_matches"])
