@@ -18,7 +18,7 @@ def topology_lines(width, left, center, right, left_status="UNTESTED", right_sta
     rows = [[" "] * canvas_width for _ in range(5)]
     for index, (label, cx) in enumerate(zip((left, center, right), centers)):
         _put(rows[0], cx - len(label) // 2, label)
-        for y, sprite in enumerate(("┏━━━━━━━━┓", "┃ ▣ ▤ ▣  ┃", "┗━┳━━━━┳━┛"), 1):
+        for y, sprite in enumerate(("┏━━━━━━━━┓", "┃ ▣  ▣  ┃", "┗━┳━━━━┳━┛"), 1):
             _put(rows[y], cx - NODE_WIDTH // 2, sprite)
     for idx, status in enumerate((left_status, right_status)):
         left_end = centers[idx] + NODE_WIDTH // 2
@@ -29,7 +29,7 @@ def topology_lines(width, left, center, right, left_status="UNTESTED", right_sta
         if status == "HEALTHY":
             rows[2][right_begin - 2] = "▶"
     rows[4] = list("".join((" " * cell for _ in range(3))))
-    return ["".join(row).rstrip() for row in rows]
+    return ["".join(row) for row in rows]
 
 def topology_render(width, single_status, path=None):
     running_path = path is not None
