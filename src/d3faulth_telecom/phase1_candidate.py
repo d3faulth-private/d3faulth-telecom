@@ -14,7 +14,7 @@ log stderr
  logging print category 1
  logging level lm3ua info
 line vty
- bind 127.0.0.1
+ bind 127.0.0.1 4240
 cs7 instance 0
  point-code 1
  xua rkm routing-key-allocation static-only
@@ -38,18 +38,24 @@ cs7 instance 0
   routing-key 200 42
  listen m3ua 29165
   local-ip 127.0.0.1
-  accept-asp-connections static-only
+  accept-asp-connections pre-configured
 """
 
 def inspect_candidate(content=CONFIG_TEXT):
     problems = []
-    for required in ("bind 127.0.0.1", "listen m3ua 29165", "local-ip 127.0.0.1",
+    for required in ("bind 127.0.0.1 4240", "listen m3ua 29165", "local-ip 127.0.0.1",
+                     "accept-asp-connections pre-configured",
                      "routing-key 100 23", "routing-key 200 42",
                      "remote-ip 127.0.0.2", "remote-ip 127.0.0.3"):
         if required not in content:
             problems.append("Missing: " + required)
-    if "29065" in content or "dynamic-permitted" in content:
-        problems.append("Candidate must use independent test port and static routing keys")
+    lines = {line.strip() for line in content.splitlines()}
+    if "bind 127.0.0.1 4239" in lines or "listen m3ua 29065" in lines:
+        problems.append("Candidate uses existing service port")
+    if any(line.startswith("accept-asp-connections ") and line != "accept-asp-connections pre-configured" for line in lines):
+        problems.append("Unsupported candidate ASP acceptance policy")
+    if "xua rkm routing-key-allocation static-only" not in lines:
+        problems.append("Expected static routing-key allocation not configured")
     return {"mode":"OFFLINE_REVIEW", "issues":problems,
             "syntax_verified":False, "routing_verified":False,
             "note":"Candidate text is not proof of accepted OsmoSTP syntax or delivery"}
