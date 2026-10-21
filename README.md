@@ -438,3 +438,9 @@ show cs7 instance 0 route
 ```
 
 The pause is bounded between 0 and 30 seconds and the sockets close afterward. Save VTY output before the pause ends; AS_DOWN after the process finishes is expected. Neither the primary managed OsmoSTP nor its configuration is changed. The observation window proves neither delivery nor packet capture; routing stays UNVERIFIED until actual corroborating evidence exists.
+
+### Phase 1 route-table preflight
+
+The observed OsmoSTP log `MTP-TRANSFER.req for DPC 42: no route!` and the empty `show cs7 instance 0 route` establish that the isolated test did not find an MTP forwarding route. The route-key declarations alone do not prove such a route exists.
+
+Run `telecom phase1-routes --reference /tmp/osmostp-vty-reference.xml` to compare the candidate's explicit route entries against point codes 0.2.7 and 0.5.2 and check whether the installed VTY supports `update route POINT_CODE MASK linkset LS_NAME` inside `config-cs7-rt`. This is a **read-only** audit. It intentionally does not generate an executable route candidate yet: the appropriate mask notation and whether the AS name can serve as a linkset target must first be verified for installed OsmoSTP 2.1.0. Neither primary nor candidate service is modified; forwarding and DATA receipt remain unverified.
