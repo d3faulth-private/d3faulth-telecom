@@ -357,3 +357,16 @@ telecom phase1-candidate
 The candidate is saved once to `~/.local/state/d3faulth-telecom/candidates/osmo-stp-phase1.cfg`. Read it with `cat`; the command refuses to overwrite an existing file. The candidate proposes a separate M3UA listener on 127.0.0.1:29165 with synthetic point codes 23, 42 and routing contexts 100, 200. Static configuration and VTY-command checks do **not** prove that OsmoSTP accepts the complete config, that its ASP port mapping is correct, or that DATA can reach the receiver.
 
 **Do not start or install this candidate yet.** An isolated startup needs VTY port isolation too (the default VTY listener may conflict), and the ASP-to-route semantics must be validated against OsmoSTP 2.1.0 on Kali. The existing osmo-stp.cfg and running service should remain unchanged. Neither routing nor end-to-end delivery is verified.
+
+### Candidate listener correction (Phase 1)
+OsmoSTP 2.1.0 VTY reference confirms `bind A.B.C.D [PORT]` and `accept-asp-connections (pre-configured|dynamic-permitted)`. Candidate now uses VTY `127.0.0.1:4240`, M3UA `127.0.0.1:29165`, and `accept-asp-connections pre-configured`. The routing-key allocation policy separately remains `static-only`.
+
+**If you already generated the earlier candidate**, preserve it before creating a replacement:
+
+```bash
+old="$HOME/.local/state/d3faulth-telecom/candidates/osmo-stp-phase1.cfg"
+mv -n "$old" "${old}.prior-review"
+telecom phase1-candidate
+```
+
+Inspect the new file and rerun tests. Never launch the candidate as a second service until syntax and port isolation are verified in the installed environment. This branch still makes no live routing claim.
