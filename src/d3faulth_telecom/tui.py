@@ -104,17 +104,18 @@ class TelecomApp(App):
             f"   •   CAPTURE: {'RECORDING' if cap['active'] else 'OFF'}   •   LAST TEST: {self.last_at}")
         values = list(self.rates)
         chart = "".join(SPARK[min(7, n)] for n in values)
-        packets = capture.packet_metrics()\n        self.query_one("#telemetry", Static).update(
+        packets = capture.packet_metrics()
+        self.query_one("#telemetry", Static).update(
             f"[bold cyan]┌─ LIVE TELEMETRY[/bold cyan]\n\n"
             f"  LAB EVENT COUNTER (NOT PCAP)\n  [green]{chart}[/green]\n  {values[-1]} logged events in sample\n\n"
-            f"  PCAP SCTP FRAMES: {packets['count'] if packets['count'] is not None else 'N/A'}\\n"
+            f"  PCAP SCTP FRAMES: {packets['count'] if packets['count'] is not None else 'N/A'}\n"
             f"  ASPUP/ACK: [{color}]{self.route}[/{color}]\n  CAPTURE: {'ON' if cap['active'] else 'OFF'}\n"
             f"  SCCP: NOT INSTALLED\n  TCAP: NOT INSTALLED\n  MAP: NOT INSTALLED\n"
             f"  SDR: NOT DETECTED")
         self.query_one("#diagnostics", Static).update(
             "[bold cyan]┌─ ROUTE DIAGNOSTICS[/bold cyan]\n\n"
             f" TRANSPORT: SCTP\n ENDPOINT: loopback\n PORT: 29055\n"
-            f" SINGLE-HOP: {self.route}\\n TWO-HOP: {self.path['status'] if self.path else 'UNTESTED'}\\n LAST VERIFIED: {self.last_at}\n"
+            f" SINGLE-HOP: {self.route}\\n TWO-HOP: {self.path['status'] if self.path else 'UNTESTED'}\n LAST VERIFIED: {self.last_at}\n"
             f" ERROR: {self.last_error[:42]}\n\n"
             f" CAPTURE FILE:\n {str(cap['file'] or 'None')[-38:]}\n\n"
             " T test  F fault\n C record  X stop\n W Wireshark  Q quit")
