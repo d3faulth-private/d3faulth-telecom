@@ -20,6 +20,7 @@ def main():
     sub.add_parser("stp-status", help="Check OsmoSTP and M3UA acknowledgement")
     sub.add_parser("signaling-state", help="Show verified transport/ASP states without inferring routing")
     sub.add_parser("asp-activate-test", help="Test ASPAC_ACK on managed local OsmoSTP")
+    sub.add_parser("verify-lab", help="Consolidated read-only OsmoSTP readiness and transport test")
     sub.add_parser("delivery-demo", help="Verify receipt from a separate localhost destination (not SS7 routing)")
     evidence = sub.add_parser("route-audit", help="Correlate isolated lab checkpoint events without claiming SS7 route health")
     evidence.add_argument("file", help="JSONL checkpoint file")
@@ -74,6 +75,9 @@ def main():
     elif args.cmd == "delivery-demo":
         from .delivery_demo import run_delivery_demo
         print(json.dumps(run_delivery_demo(), indent=2))
+    elif args.cmd == "verify-lab":
+        from .readiness import verify_lab
+        print(json.dumps(verify_lab(), indent=2))
     elif args.cmd == "asp-activate-test":
         from .activation import activation_probe
         print(json.dumps(activation_probe(), indent=2))
