@@ -319,3 +319,23 @@ telecom as-compare /tmp/as-before.json /tmp/as-after.json
 ```
 
 No services are restarted or modified. This text comparison highlights missing AS declarations, routing contexts and point codes, but cannot verify runtime routing or whether a routing key is associated with the correct ASP. The command deliberately returns `configuration_ready: false` and leaves the route UNVERIFIED until a separately verified end-to-end delivery test is available.
+
+## v0.8.3 — configuration safety and rollback
+
+This is a conservative **configuration validation checkpoint**. The local OsmoSTP instance is not modified unless the operator explicitly invokes `config-restore`; this branch never generates or installs an AS/ASP routing configuration.
+
+```bash
+git fetch origin
+git switch feature/v0.8.3-config-safety
+source .venv/bin/activate
+pip install -e '.[tui,dev]'
+python -m unittest discover -s tests -v
+telecom config-preflight
+telecom config-backup
+```
+
+`config-preflight` checks static loopback binding, VTY risk indicators, expected lab AS/ASP and point-code definitions and logs; `configuration_ready` remains false until separately verified. Backups are timestamped, integrity-labelled and permission-restricted under `~/.local/state/d3faulth-telecom/config-backups`. To check a saved backup, run `telecom config-verify-backup PATH`.
+
+**Explicit restore procedure (only if needed):** stop the managed OsmoSTP separately with `telecom stp-stop`, review the intended backup and current file checksum, then run `telecom config-restore BACKUP --expect-current-sha256 CURRENT_SHA256`. Restore refuses to overwrite when the service is reported running, the backup hash mismatches, or the current file has changed since review. It does **not** restart OsmoSTP. Config syntax compatibility must still be checked against the installed OsmoSTP version before deployment. Do not manually expose M3UA or VTY outside 127.0.0.1.
+
+The current release supports static validation and backup safety, **not verified end-to-end SS7 DATA routing**. The latter remains UNVERIFIED until an actual isolated destination receives the test DATA and corresponding captures are validated.
