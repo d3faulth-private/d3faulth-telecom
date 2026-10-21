@@ -58,3 +58,24 @@ class ConcurrentTests(unittest.TestCase):
         self.assertEqual(detail["name"], "NOTIFY")
         self.assertEqual(detail["notify"]["routing_contexts"], [200])
         self.assertEqual(detail["notify"]["statuses"][0]["description"], "AS_INACTIVE")
+
+    def test_observation_holds_both_associations_before_data(self):
+        class FakeSocket:
+            def close(self): pass
+        dest, src = FakeSocket(), FakeSocket()
+        with patch.object(phase1_concurrent, "_open_asp", side_effect=[
+            (dest, {"asp_active":"ACK_VERIFIED"}), (src, {"asp_active":"ACK_VERIFIED"})]), \
+             patch.object(phase1_concurrent, "send_m3ua") as send, \
+             patch.object(phase1_concurrent.time, "sleep") as sleep, \
+             patch.object(phase1_concurrent,"select") as select_module:
+            select_module.select.return_value=([],[],[])
+            result=phase1_concurrent.exercise(timeout=0.01, observation_seconds=15)
+        self.assertTrue(result["observation_started"])
+        self.assertTrue(result["observation_completed"])
+        sleep.assert_called_once_with(15)
+        send.assert_called_once()
+        self.assertEqual(result["routing"], "UNVERIFIED")
+
+    def test_rejects_excessive_observation_window(self):
+        with self.assertRaises(ValueError):
+            phase1_concurrent.exercise(observation_seconds=31)
