@@ -9,6 +9,7 @@ from textual import work
 from rich.text import Text
 from .lab import run_exchange, recent_events
 from . import capture
+from .topology import topology_render
 
 SPRITES = {
     "MSC": (" ┏━━━━━━┓ ", " ┃ ▣  ▣ ┃ ", " ┗━┳━━┳━┛ "),
@@ -20,7 +21,7 @@ SPARK = "▁▂▃▄▅▆▇█"
 
 class TelecomApp(App):
     TITLE = "D3FAULTH // TELECOM LAB"
-    SUB_TITLE = "SIGNALING OPERATIONS • v0.2"
+    SUB_TITLE = "SIGNALING OPERATIONS • v0.3.1"
     CSS = """
     Screen { background: #070e13; color: #b6dadd; }
     Header, Footer { background: #14222b; color: #4ad9ed; }
@@ -38,6 +39,8 @@ class TelecomApp(App):
     """
     BINDINGS = [
         Binding("t", "test", "Test"),
+        Binding("n", "network_test", "Two-hop network"),
+        Binding("shift+n", "network_fault", "Two-hop fault"),
         Binding("f", "fail", "Fault"),
         Binding("c", "capture_start", "Capture"),
         Binding("x", "capture_stop", "Stop capture"),
@@ -56,6 +59,7 @@ class TelecomApp(App):
         self.show_logs = True
         self.show_details = True
         self._seen = 0
+        self.path = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -90,37 +94,28 @@ class TelecomApp(App):
             self.write_log(f"[{color}]{e['at'][11:19]} [{kind}] {e['message']}[/{color}]")
         self._seen = len(events)
         self.rates.append(sum(1 for e in fresh if e["kind"] in ("send", "recv")))
-        ok = self.route == "HEALTHY"
-        bad = self.route == "FAILED"
-        color = "green" if ok else "red" if bad else "grey62"
-        wire = "━━━━▶━━" if ok else "╳╳╳╳╳╳" if bad else "┄┄┄┄┄┄"
-        p = Text()
-        p.append("     ASP CLIENT                STP TEST               HLR / SIM\n", style="bold cyan")
-        for i in range(3):
-            p.append(SPRITES["MSC"][i] + "         " + SPRITES["STP"][i] + "          " + SPRITES["HLR"][i] + "\n", style="cyan")
-        p.append("         ", style="cyan")
-        p.append(wire, style=f"bold {color}")
-        p.append("                    ┄┄┄┄┄┄", style="grey62")
-        p.append("\n\n   LOOPBACK CLIENT           127.0.0.1:29055         NOT IMPLEMENTED\n", style="dim")
-        p.append("   SCTP/M3UA test exchange is localhost-only.\n", style="yellow")
-        p.append("   HLR is disconnected; green refers only to local client ↔ test endpoint.", style="dim")
-        self.query_one("#topology", Static).update(p)
+        top_width = max(58, self.query_one("#topology", Static).size.width - 6)
+        self.query_one("#topology", Static).update(
+            topology_render(top_width, self.route, self.path))
+        color = "green" if self.route == "HEALTHY" else "red" if self.route == "FAILED" else "grey62"
         cap = capture.status()
         self.query_one("#status", Static).update(
-            f" MODE: {'LOCAL LAB' if self.route != 'UNTESTED' else 'IDLE'}   •   SCTP/M3UA: {self.route}"
+            f" MODE: LOCAL LAB   •   SINGLE-HOP: {self.route}   •   TWO-HOP: {self.path['status'] if self.path else 'UNTESTED'}"
             f"   •   CAPTURE: {'RECORDING' if cap['active'] else 'OFF'}   •   LAST TEST: {self.last_at}")
         values = list(self.rates)
         chart = "".join(SPARK[min(7, n)] for n in values)
+        packets = capture.packet_metrics()
         self.query_one("#telemetry", Static).update(
             f"[bold cyan]┌─ LIVE TELEMETRY[/bold cyan]\n\n"
-            f"  SCTP/M3UA EVENTS\n  [green]{chart}[/green]\n  {values[-1]} events / refresh\n\n"
+            f"  LAB EVENT COUNTER (NOT PCAP)\n  [green]{chart}[/green]\n  {values[-1]} logged events in sample\n\n"
+            f"  PCAP SCTP FRAMES: {packets['count'] if packets['count'] is not None else 'N/A'}\n"
             f"  ASPUP/ACK: [{color}]{self.route}[/{color}]\n  CAPTURE: {'ON' if cap['active'] else 'OFF'}\n"
             f"  SCCP: NOT INSTALLED\n  TCAP: NOT INSTALLED\n  MAP: NOT INSTALLED\n"
             f"  SDR: NOT DETECTED")
         self.query_one("#diagnostics", Static).update(
             "[bold cyan]┌─ ROUTE DIAGNOSTICS[/bold cyan]\n\n"
             f" TRANSPORT: SCTP\n ENDPOINT: loopback\n PORT: 29055\n"
-            f" ROUTE: {self.route}\n LAST VERIFIED: {self.last_at}\n"
+            f" SINGLE-HOP: {self.route}\n TWO-HOP: {self.path['status'] if self.path else 'UNTESTED'}\n LAST VERIFIED: {self.last_at}\n"
             f" ERROR: {self.last_error[:42]}\n\n"
             f" CAPTURE FILE:\n {str(cap['file'] or 'None')[-38:]}\n\n"
             " T test  F fault\n C record  X stop\n W Wireshark  Q quit")
@@ -139,6 +134,40 @@ class TelecomApp(App):
         self.last_error = error or ("Injected ACK loss" if status == "FAILED" else "None")
         self.refresh_view()
 
+    @work(thread=True, exclusive=True)
+    def execute_network(self, fail=False):
+        """Run the multiprocessing network harness in a fresh CLI process.
+
+        Python 3.14 forkserver must initialize outside the Textual worker
+        thread; a child Python interpreter has its own main thread.
+        """
+        import json
+        import subprocess
+        import sys
+        command = [sys.executable, "-m", "d3faulth_telecom.cli",
+                   "network-fail" if fail else "network-test"]
+        try:
+            completed = subprocess.run(command, capture_output=True, text=True,
+                                       timeout=20, check=False)
+            if completed.returncode:
+                raise RuntimeError(completed.stderr.strip() or "Network test failed")
+            result = json.loads(completed.stdout)
+        except (OSError, ValueError, subprocess.TimeoutExpired, RuntimeError) as exc:
+            result = {"status": "FAILED", "error": str(exc),
+                      "segments": [
+                          {"from": "ASP", "to": "RELAY", "status": "FAILED"},
+                          {"from": "RELAY", "to": "DESTINATION", "status": "FAILED"}]}
+        self.call_from_thread(self.finish_network, result)
+
+    def finish_network(self, result):
+        self.path = result
+        self.last_at = datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
+        self.last_error = result.get("error", "None")
+        self.write_log(f"[cyan]Two-hop transport: {result['status']} | {result.get('details', {})}[/cyan]")
+        self.refresh_view()
+
+    def action_network_test(self): self.execute_network(False)
+    def action_network_fault(self): self.execute_network(True)
     def action_test(self): self.execute_test(False)
     def action_fail(self): self.execute_test(True)
 

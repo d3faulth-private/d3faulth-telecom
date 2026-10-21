@@ -52,3 +52,25 @@ telecom test
 ```
 
 Repository: `d3faulth-private/d3faulth-telecom` (private). This branch is not yet merged into main.
+
+## v0.3 experimental network-core branch
+
+This development branch adds a **real three-process, two-hop SCTP/M3UA management-path test**. The processes are a loopback ASP client, an SCTP forwarding relay, and an ASPUP/ACK responder. All endpoints bind to 127.0.0.1. This proves two local signaling transport associations and forwarding, **not** a full STP/MSC/HLR service or MAP routing.
+
+Install the branch on Kali:
+
+```bash
+git fetch origin
+git switch feature/v0.3-network-core
+source .venv/bin/activate
+pip install -e '.[tui,dev]'
+python -m unittest discover -s tests -v
+telecom network-test
+telecom network-fail
+telecom
+```
+
+In the TUI press **N** to run the two-hop path test. Green or red route markers reflect the last test result; they are not continuous operational probes. For the local loopback v0.2 handshake, continue using **T**.
+
+Traffic graphs remain **event-log-derived, not actual per-second packet rates**. The v0.3 next milestone is PCAP-derived metrics plus real OsmoSTP services; neither is claimed complete. No external carrier gateways or subscribers are connected.
+
