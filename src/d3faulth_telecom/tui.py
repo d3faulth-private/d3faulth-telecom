@@ -115,7 +115,7 @@ class TelecomApp(App):
         self.query_one("#diagnostics", Static).update(
             "[bold cyan]┌─ ROUTE DIAGNOSTICS[/bold cyan]\n\n"
             f" TRANSPORT: SCTP\n ENDPOINT: loopback\n PORT: 29055\n"
-            f" SINGLE-HOP: {self.route}\\n TWO-HOP: {self.path['status'] if self.path else 'UNTESTED'}\n LAST VERIFIED: {self.last_at}\n"
+            f" SINGLE-HOP: {self.route}\n TWO-HOP: {self.path['status'] if self.path else 'UNTESTED'}\n LAST VERIFIED: {self.last_at}\n"
             f" ERROR: {self.last_error[:42]}\n\n"
             f" CAPTURE FILE:\n {str(cap['file'] or 'None')[-38:]}\n\n"
             " T test  F fault\n C record  X stop\n W Wireshark  Q quit")
