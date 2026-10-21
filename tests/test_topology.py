@@ -5,7 +5,7 @@ class TopologyLayoutTests(unittest.TestCase):
     def test_columns_centered_in_equal_cells(self):
         for width in (58, 78, 96, 120):
             rows = topology_lines(width, "ASP CLIENT", "SCTP RELAY", "DEST RESPONDER")
-            cell = (max(50, width) - 4) // 3
+            cell = max(20, (max(64, width) - 4) // 3)
             for row in rows:
                 self.assertEqual(len(row), 3 * cell)
             positions = [rows[0].index(n) for n in ("ASP CLIENT", "SCTP RELAY", "DEST RESPONDER")]
