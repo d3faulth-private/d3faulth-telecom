@@ -38,6 +38,8 @@ class TelecomApp(App):
     """
     BINDINGS = [
         Binding("t", "test", "Test"),
+        Binding("n", "network_test", "Two-hop network"),
+        Binding("shift+n", "network_fault", "Two-hop fault"),
         Binding("f", "fail", "Fault"),
         Binding("c", "capture_start", "Capture"),
         Binding("x", "capture_stop", "Stop capture"),
@@ -56,6 +58,7 @@ class TelecomApp(App):
         self.show_logs = True
         self.show_details = True
         self._seen = 0
+        self.path = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -104,6 +107,12 @@ class TelecomApp(App):
         p.append("\n\n   LOOPBACK CLIENT           127.0.0.1:29055         NOT IMPLEMENTED\n", style="dim")
         p.append("   SCTP/M3UA test exchange is localhost-only.\n", style="yellow")
         p.append("   HLR is disconnected; green refers only to local client ↔ test endpoint.", style="dim")
+        if self.path:
+            first, second = self.path["segments"]
+            p.append("\\n  TWO-HOP TEST: ", style="bold cyan")
+            p.append("ASP → RELAY ", style="green" if first["status"] == "HEALTHY" else "red")
+            p.append("→ DESTINATION ", style="green" if second["status"] == "HEALTHY" else "red")
+            p.append(f" [{self.path['status']}]", style="bold green" if self.path["status"] == "HEALTHY" else "bold red")
         self.query_one("#topology", Static).update(p)
         cap = capture.status()
         self.query_one("#status", Static).update(
@@ -139,6 +148,21 @@ class TelecomApp(App):
         self.last_error = error or ("Injected ACK loss" if status == "FAILED" else "None")
         self.refresh_view()
 
+    @work(thread=True, exclusive=True)
+    def execute_network(self, fail=False):
+        from .network import run_path
+        result = run_path(fail=fail)
+        self.call_from_thread(self.finish_network, result)
+
+    def finish_network(self, result):
+        self.path = result
+        self.last_at = datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
+        self.last_error = result.get("error", "None")
+        self.write_log(f"[cyan]Two-hop transport: {result['status']} | {result.get('details', {})}[/cyan]")
+        self.refresh_view()
+
+    def action_network_test(self): self.execute_network(False)
+    def action_network_fault(self): self.execute_network(True)
     def action_test(self): self.execute_test(False)
     def action_fail(self): self.execute_test(True)
 
