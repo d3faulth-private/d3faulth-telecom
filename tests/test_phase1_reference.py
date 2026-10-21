@@ -19,3 +19,20 @@ class Phase1ReferenceTests(unittest.TestCase):
             path.write_text("<not-closed")
             with self.assertRaises(Exception):
                 check_reference(path)
+
+    def test_namespaced_xml_commands(self):
+        from d3faulth_telecom.phase1_reference import REQUIRED
+        from xml.sax.saxutils import escape
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "vty.xml"
+            groups = []
+            for node, commands in REQUIRED.items():
+                actual_node = "config-cs7-instance" if node == "config-cs7" else node
+                elements = "".join('<command id="' + escape(cmd, {'"':'&quot;'}) + '"/>' for cmd in commands)
+                groups.append('<node id="' + actual_node + '">' + elements + '</node>')
+            path.write_text('<vtydoc xmlns="urn:osmocom:vty">' + "".join(groups) + '</vtydoc>')
+            result = check_reference(path)
+            self.assertTrue(result["reference_compatible"])
+            self.assertEqual(len(result["matched"]), 9)
+            self.assertEqual(result["missing"], [])
+            self.assertFalse(result["routing_verified"])
