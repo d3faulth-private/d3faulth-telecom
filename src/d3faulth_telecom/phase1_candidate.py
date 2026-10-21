@@ -16,7 +16,7 @@ log stderr
 line vty
  bind 127.0.0.1 4240
 cs7 instance 0
- point-code 1
+ point-code 0.0.1
  xua rkm routing-key-allocation static-only
  asp source-asp 0 29165 m3ua sctp
   remote-ip 127.0.0.2
@@ -26,7 +26,7 @@ cs7 instance 0
  as source-as m3ua
   asp source-asp
   traffic-mode override
-  routing-key 100 23
+  routing-key 100 0.2.7
  asp destination-asp 0 29165 m3ua sctp
   remote-ip 127.0.0.3
   local-ip 127.0.0.1
@@ -35,7 +35,7 @@ cs7 instance 0
  as destination-as m3ua
   asp destination-asp
   traffic-mode override
-  routing-key 200 42
+  routing-key 200 0.5.2
  listen m3ua 29165
   local-ip 127.0.0.1
   accept-asp-connections pre-configured
@@ -45,7 +45,7 @@ def inspect_candidate(content=CONFIG_TEXT):
     problems = []
     for required in ("bind 127.0.0.1 4240", "listen m3ua 29165", "local-ip 127.0.0.1",
                      "accept-asp-connections pre-configured",
-                     "routing-key 100 23", "routing-key 200 42",
+                     "point-code 0.0.1", "routing-key 100 0.2.7", "routing-key 200 0.5.2",
                      "remote-ip 127.0.0.2", "remote-ip 127.0.0.3"):
         if required not in content:
             problems.append("Missing: " + required)
