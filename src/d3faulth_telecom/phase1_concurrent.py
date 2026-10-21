@@ -11,6 +11,7 @@ from .protocol import encode_m3ua, ASPUP, ASPUP_ACK, ASPAC, ASPAC_ACK
 from .sctp_m3ua import send_m3ua
 from .m3ua_data import encode_data, decode_data, PC_A, PC_B, PAYLOAD
 from .m3ua_error import decode_error
+from .protocol import decode_m3ua
 
 def _open_asp(address):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_SCTP)
@@ -39,7 +40,8 @@ def exercise(timeout=4.0):
               "source": None, "destination": None, "concurrent_active": False,
               "data_sent": False, "destination_received": False,
               "payload_matches": False, "receiver_verified": False,
-              "pcap_verified": False, "routing": "UNVERIFIED"}
+              "pcap_verified": False, "routing": "UNVERIFIED",
+              "post_data_responses": {"source": [], "destination": []}}
     source = destination = None
     try:
         # Keep destination association open while activating source.
@@ -55,29 +57,45 @@ def exercise(timeout=4.0):
             if not ready:
                 break
             for sock in ready:
+                side = "destination" if sock is destination else "source"
                 packet = sock.recv(4096)
                 if not packet:
-                    report["error"] = "SCTP association closed"
+                    report["error"] = side + " SCTP association closed"
                     return report
-                if sock is destination:
+                try:
+                    msg = decode_m3ua(packet)
+                except ValueError as exc:
+                    report["post_data_responses"][side].append(
+                        {"raw_hex": packet.hex(), "decode_error": str(exc)})
+                    continue
+                if (msg["class"], msg["type"]) == (1, 1) and sock is destination:
                     try:
                         parsed = decode_data(packet)
-                    except ValueError:
-                        detail = decode_error(packet)
-                        if detail:
-                            report["destination_m3ua_error"] = detail
+                    except ValueError as exc:
+                        report["post_data_responses"][side].append(
+                            {"class": 1, "type": 1, "raw_hex": packet.hex(),
+                             "decode_error": str(exc)})
                         continue
                     report["destination_received"] = True
                     report["payload_matches"] = (
                         parsed["opc"] == PC_A and parsed["dpc"] == PC_B
                         and parsed["payload"] == PAYLOAD)
                     report["receiver_verified"] = report["payload_matches"]
+                    report["post_data_responses"][side].append(
+                        {"name": "DATA", "class": 1, "type": 1,
+                         "opc": parsed["opc"], "dpc": parsed["dpc"],
+                         "payload_matches": report["payload_matches"]})
                     if report["receiver_verified"]:
                         return report
                 else:
-                    detail = decode_error(packet)
-                    if detail:
-                        report["source_m3ua_error"] = detail
+                    # Preserve raw evidence for ERROR, NOTIFY and unexpected messages.
+                    try:
+                        detail = _decode_response(packet)
+                    except ValueError as exc:
+                        detail = {"raw_hex": packet.hex(), "decode_error": str(exc)}
+                    report["post_data_responses"][side].append(detail)
+                    if "m3ua_error" in detail:
+                        report[side + "_m3ua_error"] = detail["m3ua_error"]
         report["error"] = "No matching destination DATA observed before timeout"
     except (OSError, RuntimeError, ValueError) as exc:
         report["error"] = str(exc)
@@ -86,3 +104,10 @@ def exercise(timeout=4.0):
             if sock is not None:
                 sock.close()
     return report
+
+def _decode_response(packet):
+    """Reuse management decoder and retain all unrecognized protocol evidence."""
+    class SinglePacket:
+        def recv(self, size):
+            return packet
+    return _read(SinglePacket())
