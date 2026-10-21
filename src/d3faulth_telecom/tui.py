@@ -1,6 +1,7 @@
 """D3FAULTH Telecom Lab v0.2 — real-event terminal dashboard."""
 from collections import deque
 from datetime import datetime, timezone
+import time
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.widgets import Header, Footer, Static, RichLog
@@ -99,7 +100,7 @@ class TelecomApp(App):
         core = persistent.state()
         live_routes = core.get("routes", [])
         current = bool(core["running"] and core.get("observed_at")
-                       and __import__("time").time() - core["observed_at"] < 7
+                       and time.time() - core["observed_at"] < 7
                        and len(live_routes) == 2)
         live_path = None
         if current:
@@ -122,7 +123,7 @@ class TelecomApp(App):
             f"[bold cyan]┌─ LIVE TELEMETRY[/bold cyan]\n\n"
             f"  LAB EVENT COUNTER (NOT PCAP)\n  [green]{chart}[/green]\n  {values[-1]} logged events in sample\n\n"
             f"  PCAP SCTP FRAMES: {packets['count'] if packets['count'] is not None else 'N/A'}\n"
-            f"  PERSISTENT CORE: {'HEALTHY' if current and live_path['status'] == 'HEALTHY' else 'DEGRADED' if current else 'OFF'}\\n"
+            f"  PERSISTENT CORE: {'HEALTHY' if current and live_path['status'] == 'HEALTHY' else 'DEGRADED' if current else 'OFF'}\n"
             f"  ASPUP/ACK: [{color}]{self.route}[/{color}]\n  CAPTURE: {'ON' if cap['active'] else 'OFF'}\n"
             f"  SCCP: NOT INSTALLED\n  TCAP: NOT INSTALLED\n  MAP: NOT INSTALLED\n"
             f"  SDR: NOT DETECTED")
@@ -130,10 +131,10 @@ class TelecomApp(App):
             "[bold cyan]┌─ ROUTE DIAGNOSTICS[/bold cyan]\n\n"
             f" TRANSPORT: SCTP\n ENDPOINT: loopback\n PORT: 29055\n"
             f" SINGLE-HOP: {self.route}\n TWO-HOP: {self.path['status'] if self.path else 'UNTESTED'}\n LAST VERIFIED: {self.last_at}\n"
-            f" CORE: {'LIVE' if current else 'OFF/STALE'}\\n"
+            f" CORE: {'LIVE' if current else 'OFF/STALE'}\n"
             f" ERROR: {self.last_error[:42]}\n\n"
             f" CAPTURE FILE:\n {str(cap['file'] or 'None')[-38:]}\n\n"
-            " T test  F fault\n C record  X stop\n W Wireshark  Q quit")
+            " S core start  Z core stop\n T test  F fault\n C record  X stop\n W Wireshark  Q quit")
 
     @work(thread=True, exclusive=True)
     def execute_test(self, fail=False):
