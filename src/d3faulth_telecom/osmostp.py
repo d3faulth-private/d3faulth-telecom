@@ -30,12 +30,12 @@ log stderr
  logging print category 1
  logging level lm3ua info
 line vty
- no login
+ bind 127.0.0.1
 cs7 instance 0
  xua rkm routing-key-allocation dynamic-permitted
  listen m3ua 29065
-  accept-asp-connections dynamic-permitted
   local-ip 127.0.0.1
+  accept-asp-connections dynamic-permitted
 """
 
 def _read_pid():
@@ -48,7 +48,7 @@ def _owned(pid):
     if not pid or pid <= 0:
         return False
     try:
-        cmd = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\\x00", b" ").decode("utf-8", "replace")
+        cmd = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\x00", b" ").decode("utf-8", "replace")
         return "osmo-stp" in cmd and str(CONFIG) in cmd
     except OSError:
         return False
