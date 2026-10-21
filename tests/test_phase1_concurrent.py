@@ -27,7 +27,7 @@ class ConcurrentTests(unittest.TestCase):
 
     def test_receiver_success_keeps_pcap_unverified(self):
         class FakeSocket:
-            def recv(self, amount): return b"synthetic"
+            def recv(self, amount): return phase1_concurrent.encode_data(23, 42)
             def close(self): pass
         dest, src = FakeSocket(), FakeSocket()
         parsed={"opc":23,"dpc":42,"payload":phase1_concurrent.PAYLOAD}
@@ -42,3 +42,19 @@ class ConcurrentTests(unittest.TestCase):
         self.assertTrue(result["receiver_verified"])
         self.assertFalse(result["pcap_verified"])
         self.assertEqual(result["routing"],"UNVERIFIED")
+
+    def test_post_data_error_evidence_is_preserved(self):
+        import struct
+        packet = struct.pack("!BBBBIHHI", 1, 0, 0, 0, 16, 12, 8, 25)
+        detail = phase1_concurrent._decode_response(packet)
+        self.assertEqual(detail["class"], 0)
+        self.assertEqual(detail["type"], 0)
+        self.assertEqual(detail["raw_hex"], packet.hex())
+        self.assertEqual(detail["m3ua_error"]["code"], 25)
+
+    def test_post_data_notify_evidence_is_preserved(self):
+        packet = bytes.fromhex("0100000100000018000d00080001000200060008000000c8")
+        detail = phase1_concurrent._decode_response(packet)
+        self.assertEqual(detail["name"], "NOTIFY")
+        self.assertEqual(detail["notify"]["routing_contexts"], [200])
+        self.assertEqual(detail["notify"]["statuses"][0]["description"], "AS_INACTIVE")
