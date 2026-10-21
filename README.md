@@ -252,3 +252,23 @@ telecom verify-stp-capture
 `verify-stp-capture` launches a short tshark recording of **loopback SCTP port 29065**, executes the existing M3UA ASPUP / ASPAC activation probe against the managed OsmoSTP service, and reads its recorded M3UA management acknowledgments. It requires tshark/dumpcap capture permissions. Recorded PCAPs are saved under `~/.local/state/d3faulth-telecom/osmostp-captures/` and are not uploaded.
 
 `verified_management_exchange` is set only when the activation probe reports ACTIVE **and** the capture contains both ASPUP_ACK and ASPAC_ACK. `ss7_data_routing` stays UNVERIFIED and `ss7_data_route_healthy` stays false. The next milestone is independently configured lab data endpoints routed through OsmoSTP and matching destination receipt. No external carrier access or subscriber-data lookups are implemented.
+
+## v0.8 experimental local M3UA DATA route test
+
+This isolated test creates two actual SCTP ASP connections bound to `127.0.0.2` and `127.0.0.3`, sends only the built-in synthetic M3UA DATA marker using fixed lab point codes 23 and 42, and listens for the same bytes on the second association. Simultaneously it captures `lo` traffic to the managed OsmoSTP listener on `127.0.0.1:29065`.
+
+```bash
+git fetch origin
+git switch feature/v0.8-local-data-route
+source .venv/bin/activate
+pip install -e '.[tui,dev]'
+python -m unittest discover -s tests -v
+telecom stp-status
+telecom local-data-route
+```
+
+**No arbitrary targets, identifiers, or payloads are supported.** `route_healthy: true` requires the matching payload to arrive on the destination association and at least two M3UA DATA frames to appear in the local PCAP. A successful ASPAC acknowledgment alone never marks the route healthy.
+
+**Important:** An already running OsmoSTP with only dynamic ASP acceptance may not have usable AS routing keys or destination point-code routes. If so, the test reports UNVERIFIED; it does not silently rewrite the running STP's configuration. Use operator-documented Osmocom test AS/ASP routing-key configuration in a separately managed isolated environment before repeating. This experimental stage has not been verified against Kali yet.
+
+Source information: Osmocom OsmoMSC manual sections on CS7 instance, ASP/AS, routing keys, and OsmoSTP M3UA, and Osmocom osmo-stp example configurations.
