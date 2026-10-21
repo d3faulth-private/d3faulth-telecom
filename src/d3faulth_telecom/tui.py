@@ -150,8 +150,27 @@ class TelecomApp(App):
 
     @work(thread=True, exclusive=True)
     def execute_network(self, fail=False):
-        from .network import run_path
-        result = run_path(fail=fail)
+        """Run the multiprocessing network harness in a fresh CLI process.
+
+        Python 3.14 forkserver must initialize outside the Textual worker
+        thread; a child Python interpreter has its own main thread.
+        """
+        import json
+        import subprocess
+        import sys
+        command = [sys.executable, "-m", "d3faulth_telecom.cli",
+                   "network-fail" if fail else "network-test"]
+        try:
+            completed = subprocess.run(command, capture_output=True, text=True,
+                                       timeout=20, check=False)
+            if completed.returncode:
+                raise RuntimeError(completed.stderr.strip() or "Network test failed")
+            result = json.loads(completed.stdout)
+        except (OSError, ValueError, subprocess.TimeoutExpired, RuntimeError) as exc:
+            result = {"status": "FAILED", "error": str(exc),
+                      "segments": [
+                          {"from": "ASP", "to": "RELAY", "status": "FAILED"},
+                          {"from": "RELAY", "to": "DESTINATION", "status": "FAILED"}]}
         self.call_from_thread(self.finish_network, result)
 
     def finish_network(self, result):
