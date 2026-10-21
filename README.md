@@ -392,3 +392,9 @@ telecom phase1-associations
 ```
 
 Then review `/tmp/osmostp-phase1-associations.log` and `telecom stp-status`. A clean management ACK is not evidence of AS membership or forwarding. If binding/activation fails, **do not** adapt addresses to external networks. Capture local logs for diagnosis. Main and the original managed config are unchanged.
+
+### Unexpected M3UA activation response details
+
+The `telecom phase1-associations` probe now returns `response_details` for each management response (message name, class, type, length and raw hex). Unexpected responses additionally populate `unexpected_response`, and M3UA ERR frames expose the parsed numeric error code and a best-effort description from the existing decoder. Keep numeric codes and raw bytes as the primary evidence when debugging; mapping descriptions may need independent standards verification.
+
+Use the same bounded, isolated candidate startup documented above, then run `telecom phase1-associations` from the activated project's virtual environment while it is listening. This change sends no DATA and does not make routing healthy.
