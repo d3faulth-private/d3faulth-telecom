@@ -373,3 +373,22 @@ Inspect the new file and rerun tests. Never launch the candidate as a second ser
 
 ### Kali point-code parse checkpoint
 An isolated 8-second startup test against installed OsmoSTP 2.1.0 accepted `point-code 0.0.1`, `routing-key 100 0.2.7`, and `routing-key 200 0.5.2`; the process exited from the intended timeout (124). OsmoSTP emitted `ASP Restart for server not implemented yet!` for each static ASP. This validates startup parsing only, **not** M3UA association or DATA delivery. The generated candidate still requires isolated listener and end-to-end tests. Preserve prior candidate files when regenerating.
+
+### Phase 1 association verification (separate candidate only)
+
+`telecom phase1-associations` probes the fixed local destination `127.0.0.1:29165` using individual SCTP sockets bound to `127.0.0.2` and `127.0.0.3`. It attempts ASPUP and ASPAC management exchanges, records observed ACK types or failures separately, and **never** sends M3UA DATA. Each record and the summary keep `routing: UNVERIFIED` regardless of ACK success. Static ASP association/port matching may fail; logs must determine why.
+
+Start the validated candidate temporarily in one shell and probe during its lifetime in another:
+
+```bash
+# Terminal 1 — only this isolated candidate, not the managed primary:
+candidate="$HOME/.local/state/d3faulth-telecom/candidates/osmo-stp-phase1-pc3-test.cfg"
+timeout --signal=TERM --kill-after=3s 35s osmo-stp -c "$candidate" > /tmp/osmostp-phase1-associations.log 2>&1
+```
+
+```bash
+# Terminal 2 — run promptly while terminal 1 is active:
+telecom phase1-associations
+```
+
+Then review `/tmp/osmostp-phase1-associations.log` and `telecom stp-status`. A clean management ACK is not evidence of AS membership or forwarding. If binding/activation fails, **do not** adapt addresses to external networks. Capture local logs for diagnosis. Main and the original managed config are unchanged.
