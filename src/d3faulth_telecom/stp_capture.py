@@ -39,7 +39,7 @@ def inspect(filename):
         raise ValueError("Only local OsmoSTP captures are accepted")
     command = ["tshark", "-r", str(path), "-Y", "m3ua", "-T", "fields",
                "-e", "frame.number", "-e", "m3ua.message_class",
-               "-e", "m3ua.message_type", "-e", "sctp.ppid",
+               "-e", "m3ua.message_type", "-e", "sctp.data_payload_proto_id",
                "-E", "separator=,"]
     try:
         result = subprocess.run(command, text=True, capture_output=True, timeout=10, check=False)
