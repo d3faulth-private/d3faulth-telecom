@@ -27,6 +27,7 @@ def main():
     sub.add_parser("as-validate", help="Validate isolated two-ASP manifest against current config (read-only)")
     sub.add_parser("config-preflight", help="Read-only config safety and gap analysis")
     sub.add_parser("phase1-candidate", help="Write an isolated review-only OsmoSTP candidate file")
+    sub.add_parser("phase1-associations", help="Probe both synthetic ASP management associations on isolated candidate")
     reference = sub.add_parser("phase1-reference-check", help="Check OsmoSTP VTY reference commands (read-only)")
     reference.add_argument("xml", help="Path to installed OsmoSTP VTY reference XML")
     sub.add_parser("config-backup", help="Create managed config backup")
@@ -92,6 +93,9 @@ def main():
     elif args.cmd == "delivery-demo":
         from .delivery_demo import run_delivery_demo
         print(json.dumps(run_delivery_demo(), indent=2))
+    elif args.cmd == "phase1-associations":
+        from .phase1_association import probe_candidate
+        print(json.dumps(probe_candidate(), indent=2))
     elif args.cmd == "phase1-reference-check":
         from .phase1_reference import check_reference
         try: print(json.dumps(check_reference(args.xml), indent=2))
