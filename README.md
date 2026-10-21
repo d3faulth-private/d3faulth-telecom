@@ -1,45 +1,54 @@
 # D3FAULTH // TELECOM LAB
 
-A **terminal-first**, locally scoped telecom signaling observability prototype for Kali Linux.
+**v0.2 development branch** — dense retro-terminal dashboard, original pixel equipment art, signaling status, event timelines, packet capture controls, and direct Wireshark launcher.
 
-> **v0.1 implements a loopback SCTP connection and M3UA ASPUP/ASPUP_ACK management exchange.** It does not implement a carrier interconnect, SS7 subscriber queries, MAP/TCAP transactions, SMS interception or RF signal decoding.
+This is an **isolated loopback SCTP/M3UA lab**. It does not offer SS7 MAP interrogation, access to telecom carriers, subscriber location lookup, call/SMS interception, or radio decoding. Planned nodes are labeled accordingly.
 
-## Features
-
-- Dark cyan retro terminal topology and route-status highlighting using Textual.
-- Press **T** for SCTP/M3UA lab exchange; **F** to inject an acknowledgment failure (red route); **R** refresh events; **W** launch Wireshark separately; **Q** exit.
-- JSONL event logs in `~/.local/state/d3faulth-telecom/`.
-- `telecom doctor` checks dependencies. Works without SDR hardware.
-
-## Install on Kali Linux
+## Install / upgrade on Kali
 
 ```bash
 sudo apt update
-sudo apt install -y python3-venv python3-pip lksctp-tools wireshark
+sudo apt install -y python3-venv python3-pip lksctp-tools wireshark tshark
 sudo modprobe sctp
-git clone https://github.com/d3faulth-private/d3faulth-telecom.git
+git clone -b feature/v0.2-dashboard https://github.com/d3faulth-private/d3faulth-telecom.git
 cd d3faulth-telecom
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e '.[tui]'
+pip install -e '.[tui,dev]'
 telecom doctor
 telecom
 ```
 
-Commands: `telecom test`, `telecom fail`, `telecom events`, `telecom doctor`, `telecom wireshark`.
+If already cloned: `git fetch origin && git switch feature/v0.2-dashboard && pip install -e '.[tui,dev]'`.
 
-To inspect local SCTP packets in another terminal, run `sudo tshark -i lo -f 'sctp port 29055'` while running `telecom test`. Wireshark is a separate GUI process; its launch does not automatically start a capture.
+## Keys
 
-## Scope
+| Key | Action |
+| --- | --- |
+| T | Run localhost SCTP/M3UA ASPUP/ACK exchange |
+| F | Inject ACK failure in loopback test |
+| C | Start recording SCTP packets on `lo`, port 29055 |
+| X | Stop capture |
+| W | Launch Wireshark GUI directly, loading selected PCAP if available |
+| L | Toggle event log |
+| D | Toggle diagnostics |
+| R | Refresh data |
+| Q | Quit and stop recording |
 
-Network listeners bind exclusively to 127.0.0.1. No arbitrary-target scanning, carrier gateway connection, IMSI lookup, live subscriber tracking, or interception is implemented. Topology includes planned nodes marked unimplemented; health reflects actual localhost exchange outcomes.
+The capture requires permission to read loopback traffic. Configure normal Wireshark/dumpcap group permissions on Kali rather than running the whole TUI with sudo. Running `telecom capture` in a standalone terminal also works.
 
-## Roadmap
+## Technical behavior
 
-- Containerized STP lab with node-level metrics
-- Packet capture ingestion and signaling diagnostics
-- Synthetic MAP/TCAP and test subscriber flows
-- Optional receive-only RF adapters for gr-gsm/Kalibrate and map data
-- Optional 4G/5G core lab nodes
+The existing M3UA v0.1 protocol codec and local transport test are preserved. The route color shows the most recent test outcome, **not a continuously established carrier signaling route**. Data from the tiny local test appears in the log and event visualization. The event graphs update from observed lab events per refresh and are not simulated carrier packet rates. PCAPs and event logs are stored under `~/.local/state/d3faulth-telecom`. Wireshark opens as a normal GUI process, with no unnecessary terminal window.
 
-This is a separate repository and does not modify `pwntelecommunication`.
+No standalone HLR/MSC/SMSC instances run in this version. Full per-service topology, continuously monitored links, and actual packet rate analysis remain future milestones.
+
+## Check
+
+```bash
+python -m unittest discover -s tests -v
+telecom doctor
+telecom test
+```
+
+Repository: `d3faulth-private/d3faulth-telecom` (private). This branch is not yet merged into main.
