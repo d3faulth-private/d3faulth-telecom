@@ -10,6 +10,10 @@ def main():
     parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="cmd")
     sub.add_parser("dashboard", help="Interactive terminal topology (optional Textual dependency)")
+    msisdn = sub.add_parser("msisdn-analyze", help="Offline MSISDN field counts in authorized PCAP files (masked)")
+    msisdn.add_argument("capture")
+    tbcd = sub.add_parser("msisdn-tbcd", help="Decode synthetic test TBCD digits, masked by default")
+    tbcd.add_argument("hex_bytes")
     sub.add_parser("test", help="Run real localhost SCTP/M3UA ASPUP exchange")
     sub.add_parser("network-test", help="Run three-process two-hop local SCTP/M3UA test")
     sub.add_parser("network-fail", help="Run two-hop test with destination ACK failure")
@@ -65,6 +69,16 @@ def main():
         except ImportError:
             parser.error("Dashboard needs Textual: pip install -e '.[tui]'")
         TelecomApp().run()
+    elif args.cmd == "msisdn-analyze":
+        from .msisdn_analysis import analyze_pcap
+        try: print(json.dumps(analyze_pcap(args.capture), indent=2))
+        except (OSError, RuntimeError, ValueError) as exc: parser.exit(2, f"MSISDN analysis error: {exc}\\n")
+    elif args.cmd == "msisdn-tbcd":
+        from .msisdn_analysis import decode_tbcd, mask_msisdn
+        try:
+            digits = decode_tbcd(bytes.fromhex(args.hex_bytes))
+            print(json.dumps({"masked": mask_msisdn(digits), "digit_count":len(digits)}, indent=2))
+        except ValueError as exc: parser.exit(2, f"TBCD decode error: {exc}\\n")
     elif args.cmd in ("test", "fail"):
         try:
             print(json.dumps(run_exchange(fail=args.cmd == "fail"), indent=2))
