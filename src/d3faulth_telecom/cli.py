@@ -27,6 +27,8 @@ def main():
     sub.add_parser("as-validate", help="Validate isolated two-ASP manifest against current config (read-only)")
     sub.add_parser("config-preflight", help="Read-only config safety and gap analysis")
     sub.add_parser("phase1-candidate", help="Write an isolated review-only OsmoSTP candidate file")
+    reference = sub.add_parser("phase1-reference-check", help="Check OsmoSTP VTY reference commands (read-only)")
+    reference.add_argument("xml", help="Path to installed OsmoSTP VTY reference XML")
     sub.add_parser("config-backup", help="Create managed config backup")
     verify = sub.add_parser("config-verify-backup", help="Verify a managed backup checksum")
     verify.add_argument("path")
@@ -90,6 +92,10 @@ def main():
     elif args.cmd == "delivery-demo":
         from .delivery_demo import run_delivery_demo
         print(json.dumps(run_delivery_demo(), indent=2))
+    elif args.cmd == "phase1-reference-check":
+        from .phase1_reference import check_reference
+        try: print(json.dumps(check_reference(args.xml), indent=2))
+        except (OSError, ValueError, __import__("xml.etree.ElementTree", fromlist=["ParseError"]).ParseError) as exc: parser.exit(2, f"VTY reference error: {exc}\\n")
     elif args.cmd == "phase1-candidate":
         from .phase1_candidate import write_candidate
         try: print(json.dumps(write_candidate(), indent=2))
