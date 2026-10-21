@@ -193,3 +193,11 @@ Example lab evidence file (illustrative values, not real signaling captures):
 The command reports `CORRELATED` only for a unique matching pair. It **always reports `osmostp_routing: UNVERIFIED`** because correlated checkpoint records alone cannot prove forwarding through OsmoSTP. A future stage must gather verified, packet-level M3UA DATA evidence with a destination receipt, in the isolated test network, before declaring a signaling route healthy.
 
 To test: `python -m unittest discover -s tests -v` and `telecom route-audit path/to/lab-evidence.jsonl`. This increment does not send telecom messages, modify signaling configuration, or connect to subscribers.
+
+### Phase 3C evidence gate (work in progress)
+
+Run `telecom route-proof /path/to/route-observations.json` to audit a JSON array containing exactly one `source-tx`, `stp-rx`, `stp-tx` and `destination-rx` record for the same synthetic test transaction. Each record requires `transaction_id`, `stage`, `protocol: "M3UA-DATA"`, `payload_sha256` (64 lowercase hexadecimal characters) and a timestamp. STP ingress/egress records must include `capture_file` and `frame_number`; destination must include `receipt_verified: true`.
+
+The verifier checks ordering, hashes, uniqueness and destination evidence. Its most favorable result is `EVIDENCE_COMPLETE`, with `route_healthy: false`, since references to PCAP frames can be supplied without the files and therefore cannot independently prove actual forwarding. A future capture-aware verifier must open those captures and validate packet contents and interface attribution before the dashboard can display a verified green OsmoSTP route.
+
+No real OsmoSTP M3UA DATA forwarding is implemented by this commit. `main` is unchanged. To test locally, run `python -m unittest discover -s tests -v`.
