@@ -160,3 +160,21 @@ telecom
 Press **A** in the TUI to run the same isolated protocol-state test. It sends ASPUP and (after receiving ASPUP_ACK) ASPAC on **one SCTP association**, using M3UA PPID 3. It reports ASP ACTIVE only on receipt of a genuine ASPAC_ACK; failures and unexpected messages remain unverified. The transaction ends after the check. No packet DATA, routing verification, subscriber lookup or MAP procedures are implemented. Dynamic OsmoSTP associations may require additional AS/routing-context configuration before activation is accepted. Do not expose signaling interfaces or change the loopback binding.
 
 This increment is awaiting Kali integration verification; it is not merged into main.
+
+### v0.6 Phase 3 (first increment): destination proof gate
+
+An ASPUP_ACK or ASPAC_ACK **cannot** mark an SS7 route HEALTHY. The new delivery proof gate requires matching transaction ID, destination identity, payload hash, receipt freshness, SCTP ESTABLISHED, and ASP ACTIVE.
+
+`telecom delivery-demo` demonstrates a **real localhost TCP transfer** to an independently running local receiver and validates the resulting receipt. It is deliberately labelled `TRANSPORT-DEMO`, **not SS7 routing through OsmoSTP**. The dashboard displays `SS7 ROUTING: UNVERIFIED` until an actual routed M3UA DATA transfer with destination receipt is implemented and verified.
+
+```bash
+git fetch origin
+git switch feature/v0.6-signaling-core
+source .venv/bin/activate
+pip install -e '.[tui,dev]'
+python -m unittest discover -s tests -v
+telecom delivery-demo
+telecom
+```
+
+Phase 3 is incomplete: configuring independent ASP/AS endpoints, OsmoSTP point-code routing, a supported SS7 data transfer, capture correlation, and returned destination receipt are the next tasks. No live-carrier routes or subscriber operations are enabled.
