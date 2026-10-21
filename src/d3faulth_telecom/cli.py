@@ -14,7 +14,8 @@ def main():
     sub.add_parser("fail", help="Inject a local ASPUP_ACK failure")
     sub.add_parser("events", help="Show captured lab event log")
     sub.add_parser("doctor", help="Check dependencies and local setup")
-    sub.add_parser("wireshark", help="Launch Wireshark GUI separately")
+    sub.add_parser("wireshark", help="Open Wireshark GUI directly")
+    sub.add_parser("capture", help="Start loopback capture until Ctrl+C")
     args = parser.parse_args()
     if args.cmd in (None, "dashboard"):
         try:
@@ -41,14 +42,22 @@ def main():
             info["sctp"] = f"unavailable: {exc}"
         print(json.dumps(info, indent=2))
     elif args.cmd == "wireshark":
-        if not shutil.which("wireshark"):
-            parser.exit(2, "Wireshark not installed\n")
-        term = shutil.which("x-terminal-emulator")
-        if term:
-            subprocess.Popen([term, "-e", "wireshark"], start_new_session=True)
-        else:
-            subprocess.Popen(["wireshark"], start_new_session=True)
-        print("Wireshark launched (no capture initiated).")
+        from .capture import open_wireshark
+        try: print(open_wireshark())
+        except RuntimeError as exc: parser.exit(2, f"ERROR: {exc}\\n")
+    elif args.cmd == "capture":
+        import time
+        from . import capture
+        try:
+            info = capture.start()
+            print(f"Recording loopback to {info['file']}; press Ctrl+C to stop")
+            while True: time.sleep(0.4)
+        except KeyboardInterrupt:
+            pass
+        except RuntimeError as exc:
+            parser.exit(2, f"ERROR: {exc}\\n")
+        finally:
+            capture.stop()
 
 if __name__ == "__main__":
     main()
