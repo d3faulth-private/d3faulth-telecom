@@ -398,3 +398,6 @@ Then review `/tmp/osmostp-phase1-associations.log` and `telecom stp-status`. A c
 The `telecom phase1-associations` probe now returns `response_details` for each management response (message name, class, type, length and raw hex). Unexpected responses additionally populate `unexpected_response`, and M3UA ERR frames expose the parsed numeric error code and a best-effort description from the existing decoder. Keep numeric codes and raw bytes as the primary evidence when debugging; mapping descriptions may need independent standards verification.
 
 Use the same bounded, isolated candidate startup documented above, then run `telecom phase1-associations` from the activated project's virtual environment while it is listening. This change sends no DATA and does not make routing healthy.
+
+### Phase 1 NOTIFY-aware management probe
+The association probe recognizes M3UA NOTIFY (class 0/type 1), parses status and routing-context parameters, and waits up to 3 seconds / 12 responses per handshake stage for the expected ACK. It retains an ordered `responses` list of names and `response_details` records with raw packet hex, while reporting M3UA ERR separately. NOTIFY with status 1/2 is displayed as AS_INACTIVE. Use the same two-terminal, bounded candidate startup as above. No M3UA DATA is sent and routing remains UNVERIFIED.
