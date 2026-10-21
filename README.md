@@ -426,3 +426,15 @@ The first command keeps destination and source SCTP associations open together, 
 ### Phase 1 post-DATA diagnostics
 
 `telecom phase1-concurrent` now records a `post_data_responses` object with separate `source` and `destination` ordered arrays. For M3UA ERROR and NOTIFY frames, records include class, type, raw hex, decoded error code or NOTIFY status and routing contexts. Unexpected DATA or malformed responses are preserved as evidence rather than silently ignored. No routing context is added to outgoing DATA by this change; OsmoSTP configuration is unchanged. Receiver receipt alone does not mark PCAP or routing as verified. Start the bounded isolated OsmoSTP candidate first and rerun this command while the candidate is listening.
+
+### Live 15-second AS/route observation
+
+Run the isolated candidate on 127.0.0.1:29165 / VTY 127.0.0.1:4240, ensuring no other candidate occupies these ports. From a second terminal run `telecom phase1-concurrent --observe-seconds 15`. After both ASPAC acknowledgments the command prints a readiness message and **holds both SCTP associations open for 15 seconds before sending the synthetic DATA message**. While the pause is active, connect via `telnet 127.0.0.1 4240` from another terminal and enter:
+
+```
+show cs7 instance 0 as active
+show cs7 instance 0 asp
+show cs7 instance 0 route
+```
+
+The pause is bounded between 0 and 30 seconds and the sockets close afterward. Save VTY output before the pause ends; AS_DOWN after the process finishes is expected. Neither the primary managed OsmoSTP nor its configuration is changed. The observation window proves neither delivery nor packet capture; routing stays UNVERIFIED until actual corroborating evidence exists.
