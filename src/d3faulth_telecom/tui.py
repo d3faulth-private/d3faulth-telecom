@@ -122,7 +122,7 @@ class TelecomApp(App):
         chart = "".join(SPARK[min(7, n)] for n in values)
         self.query_one("#telemetry", Static).update(
             f"[bold cyan]┌─ LIVE TELEMETRY[/bold cyan]\n\n"
-            f"  SCTP/M3UA EVENTS\n  [green]{chart}[/green]\n  {values[-1]} events / refresh\n\n"
+            f"  LAB EVENT COUNTER (NOT PCAP)\n  [green]{chart}[/green]\n  {values[-1]} logged events in sample\n\n"
             f"  ASPUP/ACK: [{color}]{self.route}[/{color}]\n  CAPTURE: {'ON' if cap['active'] else 'OFF'}\n"
             f"  SCCP: NOT INSTALLED\n  TCAP: NOT INSTALLED\n  MAP: NOT INSTALLED\n"
             f"  SDR: NOT DETECTED")
