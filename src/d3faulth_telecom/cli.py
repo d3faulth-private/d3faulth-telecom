@@ -27,6 +27,8 @@ def main():
     sub.add_parser("as-validate", help="Validate isolated two-ASP manifest against current config (read-only)")
     sub.add_parser("config-preflight", help="Read-only config safety and gap analysis")
     sub.add_parser("phase1-candidate", help="Write an isolated review-only OsmoSTP candidate file")
+    routes = sub.add_parser("phase1-routes", help="Read-only check of candidate AS and route-table mapping")
+    routes.add_argument("--reference", default="/tmp/osmostp-vty-reference.xml")
     sub.add_parser("phase1-associations", help="Probe both synthetic ASP management associations on isolated candidate")
     concurrent = sub.add_parser("phase1-concurrent", help="Verify concurrent ASP activation and synthetic DATA receipt on candidate")
     concurrent.add_argument("--observe-seconds", type=float, default=0, help="Hold both ASPs open for VTY inspection (0-30s)")
@@ -109,6 +111,13 @@ def main():
         from .phase1_reference import check_reference
         try: print(json.dumps(check_reference(args.xml), indent=2))
         except (OSError, ValueError, __import__("xml.etree.ElementTree", fromlist=["ParseError"]).ParseError) as exc: parser.exit(2, f"VTY reference error: {exc}\\n")
+    elif args.cmd == "phase1-routes":
+        from .phase1_routes import candidate_with_routes, route_command_supported
+        try:
+            report = candidate_with_routes()
+            report["installed_vty_route_command_supported"] = route_command_supported(args.reference)
+            print(json.dumps(report, indent=2))
+        except (OSError, ValueError) as exc: parser.exit(2, f"Route preflight error: {exc}\\n")
     elif args.cmd == "phase1-candidate":
         from .phase1_candidate import write_candidate
         try: print(json.dumps(write_candidate(), indent=2))
