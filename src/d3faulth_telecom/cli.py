@@ -26,6 +26,7 @@ def main():
     sub.add_parser("routing-audit", help="Read-only audit of OsmoSTP AS, point-code and routing-context configuration")
     sub.add_parser("as-validate", help="Validate isolated two-ASP manifest against current config (read-only)")
     sub.add_parser("config-preflight", help="Read-only config safety and gap analysis")
+    sub.add_parser("phase1-candidate", help="Write an isolated review-only OsmoSTP candidate file")
     sub.add_parser("config-backup", help="Create managed config backup")
     verify = sub.add_parser("config-verify-backup", help="Verify a managed backup checksum")
     verify.add_argument("path")
@@ -89,6 +90,10 @@ def main():
     elif args.cmd == "delivery-demo":
         from .delivery_demo import run_delivery_demo
         print(json.dumps(run_delivery_demo(), indent=2))
+    elif args.cmd == "phase1-candidate":
+        from .phase1_candidate import write_candidate
+        try: print(json.dumps(write_candidate(), indent=2))
+        except (OSError, ValueError) as exc: parser.exit(2, f"Candidate error: {exc}\\n")
     elif args.cmd in ("config-preflight","config-backup","config-verify-backup","config-restore"):
         from . import config_safety, osmostp
         try:
