@@ -339,3 +339,21 @@ telecom config-backup
 **Explicit restore procedure (only if needed):** stop the managed OsmoSTP separately with `telecom stp-stop`, review the intended backup and current file checksum, then run `telecom config-restore BACKUP --expect-current-sha256 CURRENT_SHA256`. Restore refuses to overwrite when the service is reported running, the backup hash mismatches, or the current file has changed since review. It does **not** restart OsmoSTP. Config syntax compatibility must still be checked against the installed OsmoSTP version before deployment. Do not manually expose M3UA or VTY outside 127.0.0.1.
 
 The current release supports static validation and backup safety, **not verified end-to-end SS7 DATA routing**. The latter remains UNVERIFIED until an actual isolated destination receives the test DATA and corresponding captures are validated.
+
+## Phase 1 — candidate routing preflight (not yet operational)
+
+This development branch adds an **offline review-only** candidate configuration for two isolated loopback ASPs and a version-aware VTY command reference checker. It deliberately does not touch the managed running OsmoSTP or its backups.
+
+```bash
+git fetch origin
+git switch feature/phase1-routing-preflight
+source .venv/bin/activate
+pip install -e '.[tui,dev]'
+python -m unittest discover -s tests -v
+telecom phase1-reference-check /tmp/osmostp-vty-reference.xml
+telecom phase1-candidate
+```
+
+The candidate is saved once to `~/.local/state/d3faulth-telecom/candidates/osmo-stp-phase1.cfg`. Read it with `cat`; the command refuses to overwrite an existing file. The candidate proposes a separate M3UA listener on 127.0.0.1:29165 with synthetic point codes 23, 42 and routing contexts 100, 200. Static configuration and VTY-command checks do **not** prove that OsmoSTP accepts the complete config, that its ASP port mapping is correct, or that DATA can reach the receiver.
+
+**Do not start or install this candidate yet.** An isolated startup needs VTY port isolation too (the default VTY listener may conflict), and the ASP-to-route semantics must be validated against OsmoSTP 2.1.0 on Kali. The existing osmo-stp.cfg and running service should remain unchanged. Neither routing nor end-to-end delivery is verified.
