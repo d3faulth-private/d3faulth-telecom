@@ -22,6 +22,7 @@ def main():
     sub.add_parser("asp-activate-test", help="Test ASPAC_ACK on managed local OsmoSTP")
     sub.add_parser("verify-lab", help="Consolidated read-only OsmoSTP readiness and transport test")
     sub.add_parser("verify-stp-capture", help="Capture M3UA management traffic and correlate with ASP activation")
+    sub.add_parser("local-data-route", help="Attempt synthetic point-code DATA delivery between two localhost ASPs")
     sub.add_parser("delivery-demo", help="Verify receipt from a separate localhost destination (not SS7 routing)")
     evidence = sub.add_parser("route-audit", help="Correlate isolated lab checkpoint events without claiming SS7 route health")
     evidence.add_argument("file", help="JSONL checkpoint file")
@@ -76,6 +77,9 @@ def main():
     elif args.cmd == "delivery-demo":
         from .delivery_demo import run_delivery_demo
         print(json.dumps(run_delivery_demo(), indent=2))
+    elif args.cmd == "local-data-route":
+        from .local_route import exercise
+        print(json.dumps(exercise(), indent=2))
     elif args.cmd == "verify-stp-capture":
         from .integration import verify_capture_session
         print(json.dumps(verify_capture_session(), indent=2))
