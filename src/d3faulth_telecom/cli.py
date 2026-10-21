@@ -19,6 +19,7 @@ def main():
     sub.add_parser("stp-start", help="Start isolated OsmoSTP server")
     sub.add_parser("stp-status", help="Check OsmoSTP and M3UA acknowledgement")
     sub.add_parser("signaling-state", help="Show verified transport/ASP states without inferring routing")
+    sub.add_parser("asp-activate-test", help="Test ASPAC_ACK on managed local OsmoSTP")
     sub.add_parser("stp-stop", help="Stop the managed OsmoSTP server")
     sub.add_parser("fail", help="Inject a local ASPUP_ACK failure")
     sub.add_parser("events", help="Show captured lab event log")
@@ -50,6 +51,9 @@ def main():
         operation = {"stp-start": osmostp.start, "stp-status": osmostp.status, "stp-stop": osmostp.stop}[args.cmd]
         try: print(json.dumps(operation(), indent=2))
         except RuntimeError as exc: parser.exit(2, f"ERROR: {exc}\\n")
+    elif args.cmd == "asp-activate-test":
+        from .activation import activation_probe
+        print(json.dumps(activation_probe(), indent=2))
     elif args.cmd == "signaling-state":
         from . import osmostp
         from .signaling_state import State
