@@ -35,19 +35,28 @@ def _open_asp(address):
         sock.close()
         raise
 
-def exercise(timeout=4.0):
+def exercise(timeout=4.0, observation_seconds=0.0):
+    if not 0 <= observation_seconds <= 30:
+        raise ValueError("Observation window must be between 0 and 30 seconds")
     report = {"mode": "ISOLATED_CONCURRENT_ASPS", "gateway": f"{HOST}:{PORT}",
               "source": None, "destination": None, "concurrent_active": False,
               "data_sent": False, "destination_received": False,
               "payload_matches": False, "receiver_verified": False,
               "pcap_verified": False, "routing": "UNVERIFIED",
-              "post_data_responses": {"source": [], "destination": []}}
+              "post_data_responses": {"source": [], "destination": []},
+              "observation_seconds": observation_seconds,
+              "observation_started": False, "observation_completed": False}
     source = destination = None
     try:
         # Keep destination association open while activating source.
         destination, report["destination"] = _open_asp("127.0.0.3")
         source, report["source"] = _open_asp("127.0.0.2")
         report["concurrent_active"] = True
+        if observation_seconds:
+            report["observation_started"] = True
+            print(f"Both test ASPs acknowledged ACTIVE. VTY observation window: {observation_seconds:g}s on 127.0.0.1:4240", flush=True)
+            time.sleep(observation_seconds)
+            report["observation_completed"] = True
         send_m3ua(source, encode_data(PC_A, PC_B), stream=1)
         report["data_sent"] = True
         deadline = time.monotonic() + timeout
