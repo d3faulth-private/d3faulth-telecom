@@ -339,3 +339,16 @@ telecom config-backup
 **Explicit restore procedure (only if needed):** stop the managed OsmoSTP separately with `telecom stp-stop`, review the intended backup and current file checksum, then run `telecom config-restore BACKUP --expect-current-sha256 CURRENT_SHA256`. Restore refuses to overwrite when the service is reported running, the backup hash mismatches, or the current file has changed since review. It does **not** restart OsmoSTP. Config syntax compatibility must still be checked against the installed OsmoSTP version before deployment. Do not manually expose M3UA or VTY outside 127.0.0.1.
 
 The current release supports static validation and backup safety, **not verified end-to-end SS7 DATA routing**. The latter remains UNVERIFIED until an actual isolated destination receives the test DATA and corresponding captures are validated.
+
+## Guided MAP security simulations
+
+The existing `telecom` CLI now includes a safe interactive workflow:
+
+```bash
+telecom guided
+# Or directly:
+telecom map-simulate ati
+telecom map-simulate update-location --approve-synthetic-change
+```
+
+The guided menu offers synthetic ATI disclosure-policy and UpdateLocation registration-integrity scenarios. Both use fictional local SIM records; UpdateLocation requests explicit approval and changes only an in-memory copy, then discards it. These are **offline policy simulations**, not MAP wire-protocol implementations: they neither send SS7 messages nor contact any carrier network or change OsmoSTP, HLR, or subscriber state. Existing signaling tools remain available through their original commands.
